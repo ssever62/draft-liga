@@ -81,6 +81,9 @@
   <div class="sub">Nogomet: pobjeda 3 · remi 1 · poraz 0 &nbsp;|&nbsp; NBA: pobjeda 1 · poraz 0 &nbsp;|&nbsp; Podaci: ESPN (javni API)</div>
   <div class="bar">
     <button onclick="loadAll()">🔄 Osvježi</button>
+    <button onclick="showView('players')">👤 Utakmice po igraču</button>
+    <button onclick="showView('leagues')">🏆 Utakmice po ligama</button>
+    <button onclick="showView('next')">⏭️ Sljedeće kolo</button>
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
@@ -89,7 +92,7 @@
   <h2>Detalji po ligama</h2>
   <div class="grid" id="cards"></div>
 
-  <h2>📅 Pregled utakmica</h2>
+  <h2 id="pregled">📅 Pregled utakmica</h2>
   <div class="tabs">
     <button class="tab" data-view="players">👤 Po igračima</button>
     <button class="tab" data-view="leagues">🏆 Po ligama</button>
@@ -315,6 +318,14 @@ function initViewer(results){
 
 function syncTabs(){
   document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.view === VIEW.tab));
+}
+
+function showView(tab){
+  VIEW = { tab:tab, player:null, league:null };
+  syncTabs();
+  renderView();
+  const h = document.getElementById("pregled");
+  if(h) h.scrollIntoView({ behavior:"smooth", block:"start" });
 }
 
 function totalsByPlayer(){
