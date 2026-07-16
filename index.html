@@ -420,37 +420,50 @@ function renderLeaguesView(v){
 }
 
 async function loadLeagueMatches(lg, cell){
-  let html = "";
-  for(const [p, club] of Object.entries(lg.picks)){
-    html += `<div class="mhead">${club} <span class="lg">${p}</span></div>`;
+  // svi klubovi lige paralelno
+  const results = await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
     const id = await clubId(lg, club);
-    if(!id){ html += `<div class="muted" style="font-size:.8rem">Nema podataka.</div>`; continue; }
-    const ev = await fetchSchedule(lg, id);
-    if(!ev.length){ html += `<div class="muted" style="font-size:.8rem">Raspored 2026/27 još nije objavljen.</div>`; continue; }
-    html += `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
-  }
+    const ev = id ? await fetchSchedule(lg, id) : [];
+    return { p, club, id, ev };
+  }));
+  let html = "";
+  results.forEach(({p, club, id, ev}) => {
+    html += `<div class="mhead">${club} <span class="lg">${p}</span></div>`;
+    if(!id) html += `<div class="muted" style="font-size:.8rem">Nema podataka.</div>`;
+    else if(!ev.length) html += `<div class="muted" style="font-size:.8rem">Raspored 2026/27 još nije objavljen.</div>`;
+    else html += `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
+  });
   cell.innerHTML = html;
 }
 
 async function renderNextView(v){
   v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
   const now = Date.now();
-  let html = "";
-  for(const lg of LEAGUES){
-    let rows = "";
-    for(const [p, club] of Object.entries(lg.picks)){
+  // svi klubovi paralelno (puno brze nego jedan po jedan)
+  const jobs = [];
+  LEAGUES.forEach(lg => Object.entries(lg.picks).forEach(([p, club]) => {
+    jobs.push((async () => {
       const id = await clubId(lg, club);
       let next = null;
       if(id){
         const ev = await fetchSchedule(lg, id);
         next = ev.find(m => m.state !== "post" && new Date(m.date).getTime() >= now - 86400000) || ev.find(m => m.state !== "post");
       }
+      return { lg, p, club, id, next };
+    })());
+  }));
+  const results = await Promise.all(jobs);
+  if(VIEW.tab !== "next") return; // korisnik je u meduvremenu promijenio prikaz
+  let html = "";
+  LEAGUES.forEach(lg => {
+    let rows = "";
+    results.filter(r => r.lg === lg).forEach(({p, club, id, next}) => {
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="muted">${ds}</td></tr>`;
-    }
+    });
     html += `<div class="mhead">${lg.name}</div><table class="mtable">${rows}</table>`;
-  }
+  });
   v.innerHTML = html;
 }
 
