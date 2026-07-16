@@ -74,6 +74,12 @@
   .crumb .cur{font-weight:700;}
   .mhead{font-weight:700;margin:18px 0 6px;font-size:.95rem;}
   .mhead .lg{color:var(--muted);font-weight:400;font-size:.78rem;}
+  .nexttable{table-layout:fixed;}
+  .nexttable td:nth-child(1){width:120px;}
+  .nexttable td:nth-child(2){width:220px;}
+  .nexttable td:nth-child(3){width:auto;}
+  .nexttable td:nth-child(4){width:140px;text-align:right;}
+  .nexttable td{overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 <body>
@@ -462,7 +468,7 @@ async function renderNextView(v){
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="muted">${ds}</td></tr>`;
     });
-    html += `<div class="mhead">${lg.name}</div><table class="mtable">${rows}</table>`;
+    html += `<div class="mhead">${lg.name}</div><table class="mtable nexttable">${rows}</table>`;
   });
   v.innerHTML = html;
 }
