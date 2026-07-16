@@ -74,11 +74,19 @@
   .crumb .cur{font-weight:700;}
   .mhead{font-weight:700;margin:18px 0 6px;font-size:.95rem;}
   .mhead .lg{color:var(--muted);font-weight:400;font-size:.78rem;}
+  .fdr{display:inline-block;min-width:22px;text-align:center;border-radius:4px;font-weight:800;font-size:.72rem;padding:1px 5px;color:#08111f;}
+  .fdr1{background:#4ade80;}
+  .fdr2{background:#a3e635;}
+  .fdr3{background:#cbd5e1;}
+  .fdr4{background:#fb923c;}
+  .fdr5{background:#ef4444;color:#fff;}
+  .fdrlegend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:-6px 0 16px;font-size:.8rem;color:var(--muted);}
   .nexttable{table-layout:fixed;}
-  .nexttable td:nth-child(1){width:120px;}
-  .nexttable td:nth-child(2){width:220px;}
+  .nexttable td:nth-child(1){width:110px;}
+  .nexttable td:nth-child(2){width:200px;}
   .nexttable td:nth-child(3){width:auto;}
-  .nexttable td:nth-child(4){width:140px;text-align:right;}
+  .nexttable td:nth-child(4){width:54px;text-align:center;}
+  .nexttable td:nth-child(5){width:130px;text-align:right;}
   .nexttable td{overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
@@ -103,6 +111,14 @@
     <button class="tab" data-view="players">👤 Po igračima</button>
     <button class="tab" data-view="leagues">🏆 Po ligama</button>
     <button class="tab" data-view="next">⏭️ Sljedeće kolo</button>
+  </div>
+  <div class="fdrlegend">
+    <span>Težina protivnika (FDR):</span>
+    <span><span class="fdr fdr1">1</span> vrlo lako</span>
+    <span><span class="fdr fdr2">2</span> lako</span>
+    <span><span class="fdr fdr3">3</span> srednje</span>
+    <span><span class="fdr fdr4">4</span> teško</span>
+    <span><span class="fdr fdr5">5</span> vrlo teško</span>
   </div>
   <div id="viewer"></div>
 
@@ -252,6 +268,50 @@ function render(results){
 
 let LEAGUE_ROWS = {};
 const SCHED_CACHE = {};
+let STRENGTH = null;
+
+// Snaga klubova iz PROSLE sezone (za FDR tezinu protivnika 1-5)
+async function loadStrength(){
+  if(STRENGTH) return STRENGTH;
+  const s = {};
+  await Promise.all(LEAGUES.map(async lg => {
+    const m = {};
+    try{
+      if(lg.type === "nba"){
+        const d = await fetch("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2026").then(r => r.json());
+        const rows = [];
+        (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; rows.push({id:o.team.id,w:g("wins"),l:g("losses")}); return;} for(const k in o) walk(o[k]); })(d);
+        rows.sort((a,b) => (b.w/((b.w+b.l)||1)) - (a.w/((a.w+a.l)||1)));
+        rows.forEach((r,i) => m[r.id] = i+1); m.__n = rows.length;
+      } else {
+        const d = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${lg.espn}/standings?season=2025`).then(r => r.json());
+        const rows = [];
+        (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; rows.push({id:o.team.id,pts:g("points")}); return;} for(const k in o) walk(o[k]); })(d);
+        rows.sort((a,b) => b.pts - a.pts);
+        rows.forEach((r,i) => m[r.id] = i+1); m.__n = rows.length;
+      }
+    }catch(e){}
+    s[lg.name] = m;
+  }));
+  STRENGTH = s;
+  return STRENGTH;
+}
+
+function rankToFdr(rank, n){
+  if(!rank || !n) return 2;
+  const f = rank/n;
+  if(f <= 0.15) return 5;
+  if(f <= 0.35) return 4;
+  if(f <= 0.65) return 3;
+  if(f <= 0.85) return 2;
+  return 1;
+}
+function fdr(lg, oppId){
+  const m = STRENGTH && STRENGTH[lg.name];
+  if(!m || !oppId || !m[oppId]) return 2; // nepoznat/promaknut protivnik = lako
+  return rankToFdr(m[oppId], m.__n);
+}
+function fdrBadge(d){ return `<span class="fdr fdr${d}" title="Tezina protivnika ${d}/5">${d}</span>`; }
 
 let NBA_IDS = null;
 async function nbaId(club){
@@ -285,6 +345,7 @@ function parseEvent(e, id, lg){
     date: e.date,
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
+    oppId: (opp && opp.team) ? opp.team.id : null,
     myScore: (me && me.score) ? (me.score.displayValue ?? me.score) : "",
     oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
     state, res
@@ -354,10 +415,11 @@ function fmtDate(iso, withTime){
   return withTime ? `${s} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` : s;
 }
 
-function matchRowHtml(m, myName){
+function matchRowHtml(m, myName, lg){
   const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
   const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "—");
-  return `<tr><td class="muted">${fmtDate(m.date)}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td></tr>`;
+  const dfr = fdrBadge(fdr(lg, m.oppId));
+  return `<tr><td class="muted">${fmtDate(m.date)}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td><td class="c">${dfr}</td></tr>`;
 }
 
 function crumb(parents, current){
@@ -407,11 +469,12 @@ function renderPlayersView(v){
 }
 
 async function loadClubMatches(lg, club, cell){
+  await loadStrength();
   const id = await clubId(lg, club);
   if(!id){ cell.textContent = "Klub nema podataka."; return; }
   const ev = await fetchSchedule(lg, id);
   if(!ev.length){ cell.textContent = "Raspored 2026/27 još nije objavljen."; return; }
-  cell.innerHTML = `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
+  cell.innerHTML = `<table class="mtable">` + ev.map(m => matchRowHtml(m, club, lg)).join("") + `</table>`;
 }
 
 function renderLeaguesView(v){
@@ -426,6 +489,7 @@ function renderLeaguesView(v){
 }
 
 async function loadLeagueMatches(lg, cell){
+  await loadStrength();
   // svi klubovi lige paralelno
   const results = await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
     const id = await clubId(lg, club);
@@ -437,13 +501,14 @@ async function loadLeagueMatches(lg, cell){
     html += `<div class="mhead">${club} <span class="lg">${p}</span></div>`;
     if(!id) html += `<div class="muted" style="font-size:.8rem">Nema podataka.</div>`;
     else if(!ev.length) html += `<div class="muted" style="font-size:.8rem">Raspored 2026/27 još nije objavljen.</div>`;
-    else html += `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
+    else html += `<table class="mtable">` + ev.map(m => matchRowHtml(m, club, lg)).join("") + `</table>`;
   });
   cell.innerHTML = html;
 }
 
 async function renderNextView(v){
   v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
+  await loadStrength();
   const now = Date.now();
   // svi klubovi paralelno (puno brze nego jedan po jedan)
   const jobs = [];
@@ -466,7 +531,8 @@ async function renderNextView(v){
     results.filter(r => r.lg === lg).forEach(({p, club, id, next}) => {
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
-      rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="muted">${ds}</td></tr>`;
+      const dfr = next ? fdrBadge(fdr(lg, next.oppId)) : "";
+      rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${lg.name}</div><table class="mtable nexttable">${rows}</table>`;
   });
