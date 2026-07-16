@@ -223,37 +223,59 @@ function render(results){
 let LEAGUE_ROWS = {};
 const SCHED_CACHE = {};
 
+let NBA_IDS = null;
+async function nbaId(club){
+  if(!NBA_IDS){
+    NBA_IDS = {};
+    try{
+      const d = await fetch("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2026").then(r => r.json());
+      (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ NBA_IDS[norm(o.team.displayName)] = o.team.id; return; } for(const k in o) walk(o[k]); })(d);
+    }catch(e){}
+  }
+  const w = norm(club);
+  if(NBA_IDS[w]) return NBA_IDS[w];
+  for(const k in NBA_IDS){ if(k.includes(w) || w.includes(k)) return NBA_IDS[k]; }
+  return null;
+}
+
+function parseEvent(e, id, lg){
+  const comp = e.competitions && e.competitions[0];
+  const cs = comp ? (comp.competitors || []) : [];
+  const me = cs.find(c => String(c.team && c.team.id) === String(id));
+  const opp = cs.find(c => c !== me);
+  const state = comp && comp.status && comp.status.type && comp.status.type.state;
+  let res = "P";
+  if(state === "post" && me){
+    if(me.winner) res = "W";
+    else if(lg.type !== "nba" && opp && !opp.winner) res = "D";
+    else res = "L";
+  }
+  return {
+    id: e.id,
+    date: e.date,
+    home: me ? me.homeAway === "home" : true,
+    opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
+    myScore: (me && me.score) ? (me.score.displayValue ?? me.score) : "",
+    oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
+    state, res
+  };
+}
+
 async function fetchSchedule(lg, id){
   const key = lg.name + "/" + id;
   if(SCHED_CACHE[key]) return SCHED_CACHE[key];
-  const url = lg.type === "nba"
+  const base = lg.type === "nba"
     ? `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}/schedule`
     : `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/teams/${id}/schedule`;
-  let events = [];
-  try{
-    const d = await fetch(url).then(r => r.json());
-    events = (d.events || []).map(e => {
-      const comp = e.competitions && e.competitions[0];
-      const cs = comp ? (comp.competitors || []) : [];
-      const me = cs.find(c => String(c.team && c.team.id) === String(id));
-      const opp = cs.find(c => c !== me);
-      const state = comp && comp.status && comp.status.type && comp.status.type.state;
-      let res = "P";
-      if(state === "post" && me){
-        if(me.winner) res = "W";
-        else if(lg.type !== "nba" && opp && !opp.winner) res = "D";
-        else res = "L";
-      }
-      return {
-        date: e.date,
-        home: me ? me.homeAway === "home" : true,
-        opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
-        myScore: (me && me.score) ? (me.score.displayValue ?? me.score) : "",
-        oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
-        state, res
-      };
-    });
-  }catch(e){}
+  const map = new Map();
+  // zadani endpoint = odigrane utakmice; ?fixture=true = buduci termini
+  for(const url of [base, base + "?fixture=true"]){
+    try{
+      const d = await fetch(url).then(r => r.json());
+      (d.events || []).forEach(e => { if(!map.has(e.id)) map.set(e.id, parseEvent(e, id, lg)); });
+    }catch(e){}
+  }
+  const events = [...map.values()].sort((a,b) => new Date(a.date) - new Date(b.date));
   SCHED_CACHE[key] = events;
   return events;
 }
@@ -279,21 +301,24 @@ async function togglePlayer(p){
   if(caret) caret.textContent = open ? "\u25bc" : "\u25b6";
   if(!open || body.dataset.loaded) return;
   body.dataset.loaded = "1";
-  let html = "";
-  LEAGUES.forEach(lg => {
-    const club = lg.picks[p];
-    const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
-    html += `<div class="clubblock"><h4>${club || "\u2014"} <span class="lg">${lg.name}</span></h4>`;
-    if(!r || !r.id) html += `<div class="muted" style="font-size:.8rem">Klub nije pronađen ili nema podataka.</div></div>`;
-    else html += `<div id="ms-${p}-${slug(lg.name)}" class="muted" style="font-size:.8rem">Učitavanje utakmica\u2026</div></div>`;
-  });
-  body.innerHTML = html;
+  const items = [];
   for(const lg of LEAGUES){
     const club = lg.picks[p];
     const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
-    if(!r || !r.id) continue;
+    const id = (r && r.id) ? r.id : (lg.type === "nba" ? await nbaId(club) : null);
+    items.push({ lg, club, id });
+  }
+  let html = "";
+  items.forEach(({lg, club, id}) => {
+    html += `<div class="clubblock"><h4>${club || "\u2014"} <span class="lg">${lg.name}</span></h4>`;
+    if(!id) html += `<div class="muted" style="font-size:.8rem">Klub nije pronađen ili nema podataka.</div></div>`;
+    else html += `<div id="ms-${p}-${slug(lg.name)}" class="muted" style="font-size:.8rem">Učitavanje utakmica\u2026</div></div>`;
+  });
+  body.innerHTML = html;
+  for(const {lg, club, id} of items){
+    if(!id) continue;
     const cell = document.getElementById(`ms-${p}-${slug(lg.name)}`);
-    const ev = await fetchSchedule(lg, r.id);
+    const ev = await fetchSchedule(lg, id);
     if(!ev.length){ cell.textContent = "Raspored 2026/27 još nije objavljen."; continue; }
     let t = "<table class='mtable'>";
     ev.forEach(m => {
