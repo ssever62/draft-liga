@@ -57,6 +57,23 @@
   .res.D{background:rgba(255,209,102,.18);color:var(--gold);}
   .res.L{background:rgba(255,107,107,.18);color:var(--red);}
   .res.P{background:var(--card2);color:var(--muted);}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+  .tab{background:var(--card);color:var(--muted);border:1px solid var(--border);border-radius:9px;padding:9px 16px;cursor:pointer;font-weight:700;font-size:.85rem;}
+  .tab.active{background:var(--accent);color:#08111f;border-color:var(--accent);}
+  .tab:hover{filter:brightness(1.1);}
+  .boxes{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:12px;}
+  .box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:transform .08s,border-color .1s;}
+  .box:hover{border-color:var(--accent);transform:translateY(-2px);}
+  .box .bt{font-weight:800;font-size:1rem;}
+  .box .bs{color:var(--muted);font-size:.78rem;margin-top:5px;}
+  .box .bpts{color:var(--gold);font-weight:800;font-size:.9rem;margin-top:10px;}
+  .crumb{display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:.9rem;flex-wrap:wrap;}
+  .crumb a{color:var(--accent);cursor:pointer;}
+  .crumb a:hover{text-decoration:underline;}
+  .crumb .sep{color:var(--muted);}
+  .crumb .cur{font-weight:700;}
+  .mhead{font-weight:700;margin:18px 0 6px;font-size:.95rem;}
+  .mhead .lg{color:var(--muted);font-weight:400;font-size:.78rem;}
 </style>
 </head>
 <body>
@@ -72,9 +89,13 @@
   <h2>Detalji po ligama</h2>
   <div class="grid" id="cards"></div>
 
-  <h2>📅 Utakmice po igračima</h2>
-  <div class="sub" style="margin-top:-6px">Klikni na igrača za prikaz svih utakmica njegovih klubova (raspored + rezultati). Termini 2026/27 se pune čim ih ESPN objavi.</div>
-  <div id="players"></div>
+  <h2>📅 Pregled utakmica</h2>
+  <div class="tabs">
+    <button class="tab" data-view="players">👤 Po igračima</button>
+    <button class="tab" data-view="leagues">🏆 Po ligama</button>
+    <button class="tab" data-view="next">⏭️ Sljedeće kolo</button>
+  </div>
+  <div id="viewer"></div>
 
   <div class="foot">
     Tablica se automatski osvježava svakih 10 minuta. Klubovi se podešavaju u <b>CONFIG</b> bloku unutar ove datoteke
@@ -217,7 +238,7 @@ function render(results){
     cards += "</table></div>";
   });
   document.getElementById("cards").innerHTML = cards;
-  renderPlayers(results);
+  initViewer(results);
 }
 
 let LEAGUE_ROWS = {};
@@ -280,57 +301,146 @@ async function fetchSchedule(lg, id){
   return events;
 }
 
-function renderPlayers(results){
+let VIEW = { tab:"players", player:null, league:null };
+
+function initViewer(results){
   LEAGUE_ROWS = {};
   results.forEach(({lg, rows}) => LEAGUE_ROWS[lg.name] = rows);
-  const tot = {}; PLAYERS.forEach(p => tot[p] = 0);
-  results.forEach(({lg, rows}) => PLAYERS.forEach(p => { tot[p] += points(lg, findTeam(rows, lg.picks[p])); }));
-  let html = "";
-  PLAYERS.forEach(p => {
-    html += `<div class="pcard"><div class="phead" onclick="togglePlayer('${p}')"><span><span class="caret">\u25b6</span>${p}</span><span class="pt">${tot[p]} bod</span></div><div class="pbody" id="pb-${p}"></div></div>`;
+  document.querySelectorAll(".tab").forEach(b => {
+    b.onclick = () => { VIEW = { tab:b.dataset.view, player:null, league:null }; syncTabs(); renderView(); };
   });
-  document.getElementById("players").innerHTML = html;
+  syncTabs();
+  renderView();
 }
 
-function slug(s){ return s.replace(/[^A-Za-z0-9]/g, ""); }
+function syncTabs(){
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("active", b.dataset.view === VIEW.tab));
+}
 
-async function togglePlayer(p){
-  const body = document.getElementById("pb-" + p);
-  const open = body.classList.toggle("open");
-  const caret = body.previousElementSibling.querySelector(".caret");
-  if(caret) caret.textContent = open ? "\u25bc" : "\u25b6";
-  if(!open || body.dataset.loaded) return;
-  body.dataset.loaded = "1";
-  const items = [];
-  for(const lg of LEAGUES){
-    const club = lg.picks[p];
-    const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
-    const id = (r && r.id) ? r.id : (lg.type === "nba" ? await nbaId(club) : null);
-    items.push({ lg, club, id });
+function totalsByPlayer(){
+  const t = {}; PLAYERS.forEach(p => t[p] = 0);
+  LEAGUES.forEach(lg => PLAYERS.forEach(p => { t[p] += points(lg, findTeam(LEAGUE_ROWS[lg.name] || [], lg.picks[p])); }));
+  return t;
+}
+
+async function clubId(lg, club){
+  const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
+  if(r && r.id) return r.id;
+  if(lg.type === "nba") return await nbaId(club);
+  return null;
+}
+
+function fmtDate(iso, withTime){
+  const d = new Date(iso);
+  if(isNaN(d)) return "";
+  const s = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`;
+  return withTime ? `${s} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` : s;
+}
+
+function matchRowHtml(m, myName){
+  const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
+  const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "—");
+  return `<tr><td class="muted">${fmtDate(m.date)}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td></tr>`;
+}
+
+function crumb(parents, current){
+  let s = `<div class="crumb">`;
+  parents.forEach(([act, arg, label]) => { s += `<a onclick="crumbNav('${act}','${arg||""}')">${label}</a><span class="sep">›</span>`; });
+  s += `<span class="cur">${current}</span></div>`;
+  return s;
+}
+function crumbNav(act, arg){
+  if(act === "playersRoot") VIEW = { tab:"players", player:null, league:null };
+  else if(act === "leaguesRoot") VIEW = { tab:"leagues", player:null, league:null };
+  else if(act === "player") VIEW = { tab:"players", player:arg, league:null };
+  renderView();
+}
+
+function navPlayer(p){ VIEW = { tab:"players", player:p, league:null }; renderView(); }
+function navPlayerLeague(name){ VIEW.league = name; renderView(); }
+function navLeagueTop(name){ VIEW = { tab:"leagues", player:null, league:name }; renderView(); }
+
+function renderView(){
+  const v = document.getElementById("viewer");
+  if(VIEW.tab === "players") return renderPlayersView(v);
+  if(VIEW.tab === "leagues") return renderLeaguesView(v);
+  if(VIEW.tab === "next") return renderNextView(v);
+}
+
+function renderPlayersView(v){
+  if(!VIEW.player){
+    const tot = totalsByPlayer();
+    v.innerHTML = `<div class="boxes">` + PLAYERS.map(p =>
+      `<div class="box" onclick="navPlayer('${p}')"><div class="bt">${p}</div><div class="bpts">${tot[p]} bod</div></div>`).join("") + `</div>`;
+    return;
   }
+  const p = VIEW.player;
+  if(!VIEW.league){
+    v.innerHTML = crumb([["playersRoot","","Igrači"]], p) +
+      `<div class="boxes">` + LEAGUES.map(lg => {
+        const club = lg.picks[p];
+        return `<div class="box" onclick="navPlayerLeague('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${club || "—"}</div></div>`;
+      }).join("") + `</div>`;
+    return;
+  }
+  const lg = LEAGUES.find(l => l.name === VIEW.league);
+  const club = lg.picks[p];
+  v.innerHTML = crumb([["playersRoot","","Igrači"],["player",p,p]], `${club} · ${lg.name}`) + `<div id="mlist" class="muted">Učitavanje utakmica…</div>`;
+  loadClubMatches(lg, club, document.getElementById("mlist"));
+}
+
+async function loadClubMatches(lg, club, cell){
+  const id = await clubId(lg, club);
+  if(!id){ cell.textContent = "Klub nema podataka."; return; }
+  const ev = await fetchSchedule(lg, id);
+  if(!ev.length){ cell.textContent = "Raspored 2026/27 još nije objavljen."; return; }
+  cell.innerHTML = `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
+}
+
+function renderLeaguesView(v){
+  if(!VIEW.league){
+    v.innerHTML = `<div class="boxes">` + LEAGUES.map(lg =>
+      `<div class="box" onclick="navLeagueTop('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${lg.type==="nba"?"🏀":"⚽"} ${Object.keys(lg.picks).length} kluba</div></div>`).join("") + `</div>`;
+    return;
+  }
+  const lg = LEAGUES.find(l => l.name === VIEW.league);
+  v.innerHTML = crumb([["leaguesRoot","","Lige"]], lg.name) + `<div id="mlist" class="muted">Učitavanje utakmica…</div>`;
+  loadLeagueMatches(lg, document.getElementById("mlist"));
+}
+
+async function loadLeagueMatches(lg, cell){
   let html = "";
-  items.forEach(({lg, club, id}) => {
-    html += `<div class="clubblock"><h4>${club || "\u2014"} <span class="lg">${lg.name}</span></h4>`;
-    if(!id) html += `<div class="muted" style="font-size:.8rem">Klub nije pronađen ili nema podataka.</div></div>`;
-    else html += `<div id="ms-${p}-${slug(lg.name)}" class="muted" style="font-size:.8rem">Učitavanje utakmica\u2026</div></div>`;
-  });
-  body.innerHTML = html;
-  for(const {lg, club, id} of items){
-    if(!id) continue;
-    const cell = document.getElementById(`ms-${p}-${slug(lg.name)}`);
+  for(const [p, club] of Object.entries(lg.picks)){
+    html += `<div class="mhead">${club} <span class="lg">${p}</span></div>`;
+    const id = await clubId(lg, club);
+    if(!id){ html += `<div class="muted" style="font-size:.8rem">Nema podataka.</div>`; continue; }
     const ev = await fetchSchedule(lg, id);
-    if(!ev.length){ cell.textContent = "Raspored 2026/27 još nije objavljen."; continue; }
-    let t = "<table class='mtable'>";
-    ev.forEach(m => {
-      const d = new Date(m.date);
-      const ds = isNaN(d) ? "" : `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`;
-      const vs = m.home ? `${club} \u2013 ${m.opp}` : `${m.opp} \u2013 ${club}`;
-      const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "\u2014");
-      t += `<tr><td class="muted">${ds}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"\u00b7":m.res}</span></td></tr>`;
-    });
-    t += "</table>";
-    cell.outerHTML = t;
+    if(!ev.length){ html += `<div class="muted" style="font-size:.8rem">Raspored 2026/27 još nije objavljen.</div>`; continue; }
+    html += `<table class="mtable">` + ev.map(m => matchRowHtml(m, club)).join("") + `</table>`;
   }
+  cell.innerHTML = html;
+}
+
+async function renderNextView(v){
+  v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
+  const now = Date.now();
+  let html = "";
+  for(const lg of LEAGUES){
+    let rows = "";
+    for(const [p, club] of Object.entries(lg.picks)){
+      const id = await clubId(lg, club);
+      let next = null;
+      if(id){
+        const ev = await fetchSchedule(lg, id);
+        next = ev.find(m => m.state !== "post" && new Date(m.date).getTime() >= now - 86400000) || ev.find(m => m.state !== "post");
+      }
+      const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
+      rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="muted">${ds}</td></tr>`;
+    }
+    html += `<div class="mhead">${lg.name}</div><table class="mtable">${rows}</table>`;
+  }
+  v.innerHTML = html;
 }
 
 loadAll();
