@@ -312,26 +312,48 @@ const SCHED_CACHE = {};
 let STRENGTH = null;
 
 // Snaga klubova iz PROSLE sezone (za FDR tezinu protivnika 1-5)
+async function seasonMetrics(lg, yr){
+  // vrati mapu id -> metrika (nogomet: bodovi; NBA: postotak pobjeda) za danu sezonu
+  const map = {};
+  try{
+    const url = lg.type === "nba"
+      ? `https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=${yr}`
+      : `https://site.api.espn.com/apis/v2/sports/soccer/${lg.espn}/standings?season=${yr}`;
+    const d = await fetch(url).then(r => r.json());
+    (function walk(o){
+      if(!o||typeof o!=="object") return;
+      if(o.team && o.stats){
+        const g = n => { const x = o.stats.find(y => y.name === n); return x ? +x.value : 0; };
+        let metric, has;
+        if(lg.type === "nba"){ const w = g("wins"), l = g("losses"); has = (w+l) > 0; metric = has ? w/(w+l) : 0; }
+        else { metric = g("points"); has = g("gamesPlayed") > 0; }
+        if(has) map[o.team.id] = metric;
+        return;
+      }
+      for(const k in o) walk(o[k]);
+    })(d);
+  }catch(e){}
+  return map;
+}
+
 async function loadStrength(){
   if(STRENGTH) return STRENGTH;
   const s = {};
+  const WEIGHTS = [3, 2, 1]; // najnovija sezona ima najveću težinu
   await Promise.all(LEAGUES.map(async lg => {
+    // zadnje 3 završene sezone (nogomet 2025/24/23, NBA 2026/25/24)
+    const seasons = lg.type === "nba" ? [2026, 2025, 2024] : [2025, 2024, 2023];
+    const per = await Promise.all(seasons.map(yr => seasonMetrics(lg, yr)));
+    const latestIds = Object.keys(per[0]); // klubovi iz zadnje sezone = pool za rangiranje
+    const arr = latestIds.map(id => {
+      let wsum = 0, wtot = 0;
+      per.forEach((mp, i) => { if(mp[id] !== undefined){ wsum += mp[id] * WEIGHTS[i]; wtot += WEIGHTS[i]; } });
+      return { id, val: wtot ? wsum/wtot : 0 };
+    });
+    arr.sort((a,b) => b.val - a.val);
     const m = {};
-    try{
-      if(lg.type === "nba"){
-        const d = await fetch("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2026").then(r => r.json());
-        const rows = [];
-        (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; rows.push({id:o.team.id,w:g("wins"),l:g("losses")}); return;} for(const k in o) walk(o[k]); })(d);
-        rows.sort((a,b) => (b.w/((b.w+b.l)||1)) - (a.w/((a.w+a.l)||1)));
-        rows.forEach((r,i) => m[r.id] = i+1); m.__n = rows.length;
-      } else {
-        const d = await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${lg.espn}/standings?season=2025`).then(r => r.json());
-        const rows = [];
-        (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; rows.push({id:o.team.id,pts:g("points")}); return;} for(const k in o) walk(o[k]); })(d);
-        rows.sort((a,b) => b.pts - a.pts);
-        rows.forEach((r,i) => m[r.id] = i+1); m.__n = rows.length;
-      }
-    }catch(e){}
+    arr.forEach((r,i) => m[r.id] = i+1);
+    m.__n = arr.length;
     s[lg.name] = m;
   }));
   STRENGTH = s;
