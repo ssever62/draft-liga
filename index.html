@@ -92,10 +92,14 @@
   .fdr4{background:#fb923c;}
   .fdr5{background:#ef4444;color:#fff;}
   .fdrnote{color:var(--muted);font-size:.78rem;margin-bottom:10px;}
-  .fdrscroll{overflow-x:auto;border-radius:10px;}
+  .fdrscroll{overflow-x:auto;border-radius:10px;padding-bottom:6px;scrollbar-width:thin;scrollbar-color:var(--accent) var(--card2);}
+  .fdrscroll::-webkit-scrollbar{height:12px;}
+  .fdrscroll::-webkit-scrollbar-track{background:var(--card2);border-radius:8px;}
+  .fdrscroll::-webkit-scrollbar-thumb{background:var(--accent);border-radius:8px;border:2px solid var(--card2);}
   .fdrgrid{border-collapse:separate;border-spacing:4px;}
   .fdrgrid th{background:var(--card2);color:var(--muted);font-size:.7rem;font-weight:700;padding:5px 6px;text-align:center;text-transform:uppercase;letter-spacing:.03em;}
-  .fdrgrid td.lbl{background:var(--card2);color:var(--text);text-align:left;font-weight:800;white-space:nowrap;padding:6px 10px;border-radius:6px;font-size:.82rem;}
+  .fdrgrid td.lbl,.fdrgrid th.lbl{position:sticky;left:0;z-index:3;background:var(--card);color:var(--text);text-align:left;font-weight:800;white-space:nowrap;padding:6px 10px;border-radius:6px;font-size:.82rem;box-shadow:2px 0 6px rgba(0,0,0,.35);}
+  .fdrgrid th.lbl{background:var(--card2);}
   .fcell{color:#08111f;font-weight:800;font-size:.72rem;text-align:center;padding:6px 5px;border-radius:6px;min-width:62px;white-space:nowrap;line-height:1.15;}
   .fcell small{display:block;font-weight:600;font-size:.62rem;opacity:.85;}
   .fcell.fdr5{color:#fff;}
@@ -621,7 +625,7 @@ function navFdrPlayer(p){ VIEW = { tab:"fdr", player:p, league:null }; renderVie
 
 async function renderFdrView(v){
   if(!VIEW.player){
-    v.innerHTML = `<div class="fdrnote">Odaberi igrača za prikaz FDR rasporeda (težina sljedećih ${FDR_N} utakmica po svakom klubu).</div>`
+    v.innerHTML = `<div class="fdrnote">Odaberi igrača za prikaz FDR rasporeda (sve preostale utakmice po svakom klubu).</div>`
       + `<div class="boxes">` + PLAYERS.map(p =>
         `<div class="box" onclick="navFdrPlayer('${p}')"><div class="bt">${p}</div><div class="bs">📊 FDR raspored</div></div>`).join("") + `</div>`;
     return;
@@ -636,22 +640,28 @@ async function renderFdrView(v){
     let ups = [];
     if(id){
       const ev = await fetchSchedule(lg, id);
-      ups = ev.filter(m => m.state !== "post").slice(0, FDR_N);
+      ups = ev.filter(m => m.state !== "post");
     }
     return { lg, club, id, ups };
   }));
   if(VIEW.tab !== "fdr" || VIEW.player !== p) return;
   const wrap = document.getElementById("fdrwrap");
   if(!wrap) return;
+  const maxN = Math.max(0, ...rowsData.map(r => r.ups.length));
+  if(!maxN){
+    wrap.className = "muted";
+    wrap.innerHTML = "Raspored za sezonu 2026/27 još nije objavljen.";
+    return;
+  }
   let head = `<tr><th class="lbl" style="text-align:left">Liga / klub</th>`;
-  for(let i=1;i<=FDR_N;i++) head += `<th>${i}.</th>`;
-  head += `<th>Ø</th></tr>`;
+  for(let i=1;i<=maxN;i++) head += `<th>${i}.</th>`;
+  head += `<th class="avgcol">Ø</th></tr>`;
   let body = "";
   rowsData.forEach(({lg, club, id, ups}) => {
     const logo = LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo sm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : "";
     body += `<tr><td class="lbl">${logo}${club}</td>`;
     let sum=0, cnt=0;
-    for(let i=0;i<FDR_N;i++){
+    for(let i=0;i<maxN;i++){
       const m = ups[i];
       if(!m){ body += `<td class="fcell empty">—</td>`; continue; }
       const d = fdr(lg, m.oppId); sum+=d; cnt++;
@@ -662,7 +672,7 @@ async function renderFdrView(v){
     body += `<td class="fdravg">${avg}</td></tr>`;
   });
   wrap.className = "";
-  wrap.innerHTML = `<div class="fdrnote">Stupci = sljedeće utakmice redom (1 = prva sljedeća). Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. Ø = prosječni FDR.</div>`
+  wrap.innerHTML = `<div class="fdrnote">Stupci = sve preostale utakmice redom (1 = prva sljedeća). Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. Ø = prosječni FDR svih preostalih utakmica.</div>`
     + `<div class="fdrscroll"><table class="fdrgrid">${head}${body}</table></div>`;
 }
 
