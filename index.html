@@ -37,7 +37,9 @@
   .pick{color:var(--muted); font-style:italic;}
   .err{color:var(--red); font-size:.8rem;}
   .pts{font-weight:700; color:var(--green);}
-  .clublogo{width:18px; height:18px; vertical-align:middle; margin-right:6px; object-fit:contain;}
+  .clublogo{width:18px; height:18px; vertical-align:middle; margin-right:6px; object-fit:contain; flex:0 0 18px;}
+  .card td:nth-child(3), .card th:nth-child(3){text-align:left;}
+  .card td:nth-child(3){white-space:nowrap;}
   .foot{margin-top:30px; color:var(--muted); font-size:.75rem; line-height:1.5;}
 </style>
 </head>
@@ -189,7 +191,7 @@ function render(results){
       cards += `<tr><td>${i+1}</td><td>${p}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
       else if(!r) cards += `<td class="err">${club} — nije nađen</td>`;
-      else cards += `<td>${r.logo ? `<img class="clublogo" src="${r.logo}" alt="" onerror="this.style.display='none'">` : ""}${r.team}</td>`;
+      else cards += `<td>${r.logo ? `<img class="clublogo" src="${r.logo}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`;
       cards += `<td>${r ? r.w : "–"}</td>`;
       if(lg.type !== "nba") cards += `<td>${r ? r.d : "–"}</td>`;
       cards += `<td>${r ? r.l : "–"}</td><td class="pts">${s.pts}</td></tr>`;
