@@ -91,6 +91,16 @@
   .fdr3{background:#cbd5e1;}
   .fdr4{background:#fb923c;}
   .fdr5{background:#ef4444;color:#fff;}
+  .fdrnote{color:var(--muted);font-size:.78rem;margin-bottom:10px;}
+  .fdrscroll{overflow-x:auto;border-radius:10px;}
+  .fdrgrid{border-collapse:separate;border-spacing:4px;}
+  .fdrgrid th{background:var(--card2);color:var(--muted);font-size:.7rem;font-weight:700;padding:5px 6px;text-align:center;text-transform:uppercase;letter-spacing:.03em;}
+  .fdrgrid td.lbl{background:var(--card2);color:var(--text);text-align:left;font-weight:800;white-space:nowrap;padding:6px 10px;border-radius:6px;font-size:.82rem;}
+  .fcell{color:#08111f;font-weight:800;font-size:.72rem;text-align:center;padding:6px 5px;border-radius:6px;min-width:62px;white-space:nowrap;line-height:1.15;}
+  .fcell small{display:block;font-weight:600;font-size:.62rem;opacity:.85;}
+  .fcell.fdr5{color:#fff;}
+  .fcell.empty{background:var(--card2);color:var(--muted);font-weight:600;}
+  .fdravg{background:var(--card2);color:var(--gold);font-weight:800;text-align:center;border-radius:6px;padding:6px;font-size:.82rem;}
   .fdrlegend{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:-6px 0 16px;font-size:.8rem;color:var(--muted);}
   .nexttable{table-layout:fixed;}
   .nexttable td:nth-child(1){width:110px;}
@@ -111,6 +121,7 @@
     <button class="navbtn" onclick="showView('leagues')">🏆 Utakmice po ligama</button>
     <button class="navbtn" onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
     <button class="navbtn" onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
+    <button class="navbtn" onclick="showView('fdr')">📊 FDR po igraču</button>
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
@@ -125,6 +136,7 @@
     <button class="tab" data-view="leagues">🏆 Po ligama</button>
     <button class="tab" data-view="next">⏭️ Sljedeće kolo po ligama</button>
     <button class="tab" data-view="nextPlayers">👤 Sljedeće kolo po igračima</button>
+    <button class="tab" data-view="fdr">📊 FDR po igraču</button>
   </div>
   <div class="fdrlegend">
     <span>Težina protivnika (FDR):</span>
@@ -370,6 +382,7 @@ function parseEvent(e, id, lg){
     date: e.date,
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
+    oppAbbr: (opp && opp.team) ? (opp.team.abbreviation || opp.team.shortDisplayName || "?") : "?",
     oppId: (opp && opp.team) ? opp.team.id : null,
     myScore: (me && me.score) ? (me.score.displayValue ?? me.score) : "",
     oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
@@ -457,6 +470,7 @@ function crumbNav(act, arg){
   if(act === "playersRoot") VIEW = { tab:"players", player:null, league:null };
   else if(act === "leaguesRoot") VIEW = { tab:"leagues", player:null, league:null };
   else if(act === "player") VIEW = { tab:"players", player:arg, league:null };
+  else if(act === "fdrRoot") VIEW = { tab:"fdr", player:null, league:null };
   renderView();
 }
 
@@ -470,6 +484,7 @@ function renderView(){
   if(VIEW.tab === "leagues") return renderLeaguesView(v);
   if(VIEW.tab === "next") return renderNextView(v);
   if(VIEW.tab === "nextPlayers") return renderNextByPlayers(v);
+  if(VIEW.tab === "fdr") return renderFdrView(v);
 }
 
 function renderPlayersView(v){
@@ -598,6 +613,57 @@ async function renderNextByPlayers(v){
     html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
   });
   v.innerHTML = html;
+}
+
+const FDR_N = 8;
+
+function navFdrPlayer(p){ VIEW = { tab:"fdr", player:p, league:null }; renderView(); }
+
+async function renderFdrView(v){
+  if(!VIEW.player){
+    v.innerHTML = `<div class="fdrnote">Odaberi igrača za prikaz FDR rasporeda (težina sljedećih ${FDR_N} utakmica po svakom klubu).</div>`
+      + `<div class="boxes">` + PLAYERS.map(p =>
+        `<div class="box" onclick="navFdrPlayer('${p}')"><div class="bt">${p}</div><div class="bs">📊 FDR raspored</div></div>`).join("") + `</div>`;
+    return;
+  }
+  const p = VIEW.player;
+  v.innerHTML = crumb([["fdrRoot","","FDR po igraču"]], p) + `<div id="fdrwrap" class="muted">Učitavanje rasporeda…</div>`;
+  await loadStrength();
+  if(VIEW.tab !== "fdr" || VIEW.player !== p) return;
+  const rowsData = await Promise.all(LEAGUES.map(async lg => {
+    const club = lg.picks[p];
+    const id = await clubId(lg, club);
+    let ups = [];
+    if(id){
+      const ev = await fetchSchedule(lg, id);
+      ups = ev.filter(m => m.state !== "post").slice(0, FDR_N);
+    }
+    return { lg, club, id, ups };
+  }));
+  if(VIEW.tab !== "fdr" || VIEW.player !== p) return;
+  const wrap = document.getElementById("fdrwrap");
+  if(!wrap) return;
+  let head = `<tr><th class="lbl" style="text-align:left">Liga / klub</th>`;
+  for(let i=1;i<=FDR_N;i++) head += `<th>${i}.</th>`;
+  head += `<th>Ø</th></tr>`;
+  let body = "";
+  rowsData.forEach(({lg, club, id, ups}) => {
+    const logo = LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo sm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : "";
+    body += `<tr><td class="lbl">${logo}${club}</td>`;
+    let sum=0, cnt=0;
+    for(let i=0;i<FDR_N;i++){
+      const m = ups[i];
+      if(!m){ body += `<td class="fcell empty">—</td>`; continue; }
+      const d = fdr(lg, m.oppId); sum+=d; cnt++;
+      const oppc = m.oppAbbr && m.oppAbbr !== "?" ? m.oppAbbr : m.opp;
+      body += `<td class="fcell fdr${d}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
+    }
+    const avg = cnt ? (sum/cnt).toFixed(1) : "—";
+    body += `<td class="fdravg">${avg}</td></tr>`;
+  });
+  wrap.className = "";
+  wrap.innerHTML = `<div class="fdrnote">Stupci = sljedeće utakmice redom (1 = prva sljedeća). Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. Ø = prosječni FDR.</div>`
+    + `<div class="fdrscroll"><table class="fdrgrid">${head}${body}</table></div>`;
 }
 
 loadAll();
