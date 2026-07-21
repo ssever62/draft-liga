@@ -21,6 +21,11 @@
   .bar{display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:20px;}
   button{background:var(--accent); border:none; color:#08111f; font-weight:700; padding:8px 18px; border-radius:8px; cursor:pointer; font-size:.9rem;}
   button:hover{filter:brightness(1.15);}
+  .navbtn{background:var(--card2); color:var(--text); border:1px solid var(--border); font-weight:600;}
+  .navbtn:hover{background:var(--border); filter:none;}
+  .barsep{display:inline-block; width:1px; height:26px; background:var(--border); margin:0 6px; vertical-align:middle;}
+  .leaguelogo{height:22px; width:auto; vertical-align:middle; margin-left:8px;}
+  .leaguelogo.sm{height:16px; margin:0 5px 0 0;}
   .status{color:var(--muted); font-size:.8rem;}
   table{width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden;}
   .wrap{overflow-x:auto; border-radius:12px; border:1px solid var(--border); margin-bottom:26px;}
@@ -101,10 +106,11 @@
   <div class="sub">Nogomet: pobjeda 3 · remi 1 · poraz 0 &nbsp;|&nbsp; NBA: pobjeda 1 · poraz 0 &nbsp;|&nbsp; Podaci: ESPN (javni API)</div>
   <div class="bar">
     <button onclick="loadAll()">🔄 Osvježi</button>
-    <button onclick="showView('players')">👤 Utakmice po igraču</button>
-    <button onclick="showView('leagues')">🏆 Utakmice po ligama</button>
-    <button onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
-    <button onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
+    <span class="barsep"></span>
+    <button class="navbtn" onclick="showView('players')">👤 Utakmice po igraču</button>
+    <button class="navbtn" onclick="showView('leagues')">🏆 Utakmice po ligama</button>
+    <button class="navbtn" onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
+    <button class="navbtn" onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
@@ -159,6 +165,15 @@ const LEAGUES = [
     picks:{ "Šimo":"Miami Heat", "Hrvoje":"Washington Wizards", "Majić":"Indiana Pacers", "Ogi":"Dallas Mavericks", "Kavur":"Golden State Warriors", "Jura":"LA Clippers" } },
 ];
 /* ============================ KRAJ CONFIG ============================ */
+
+const LEAGUE_LOGOS = {
+  "Premier League": "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png",
+  "La Liga":        "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/15.png",
+  "Serie A":        "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/12.png",
+  "Bundesliga":     "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/10.png",
+  "Ligue 1":        "https://a.espncdn.com/i/leaguelogos/soccer/500-dark/9.png",
+  "NBA":            "https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png",
+};
 
 const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
 
@@ -255,7 +270,7 @@ function render(results){
   // league cards
   let cards = "";
   results.forEach(({lg, rows, err}) => {
-    cards += `<div class="card"><h3>${lg.name}${lg.type==="nba" ? " 🏀" : " ⚽"}</h3>`;
+    cards += `<div class="card"><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
     else if(!rows.length) cards += `<div class="err">Nema podataka za sezonu (još nije počela?)</div>`;
     cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
@@ -491,7 +506,7 @@ async function loadClubMatches(lg, club, cell){
 function renderLeaguesView(v){
   if(!VIEW.league){
     v.innerHTML = `<div class="boxes">` + LEAGUES.map(lg =>
-      `<div class="box" onclick="navLeagueTop('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${lg.type==="nba"?"🏀":"⚽"} ${Object.keys(lg.picks).length} kluba</div></div>`).join("") + `</div>`;
+      `<div class="box" onclick="navLeagueTop('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo sm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}${Object.keys(lg.picks).length} kluba</div></div>`).join("") + `</div>`;
     return;
   }
   const lg = LEAGUES.find(l => l.name === VIEW.league);
