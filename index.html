@@ -100,7 +100,8 @@
     <button onclick="loadAll()">🔄 Osvježi</button>
     <button onclick="showView('players')">👤 Utakmice po igraču</button>
     <button onclick="showView('leagues')">🏆 Utakmice po ligama</button>
-    <button onclick="showView('next')">⏭️ Sljedeće kolo</button>
+    <button onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
+    <button onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
@@ -113,7 +114,8 @@
   <div class="tabs">
     <button class="tab" data-view="players">👤 Po igračima</button>
     <button class="tab" data-view="leagues">🏆 Po ligama</button>
-    <button class="tab" data-view="next">⏭️ Sljedeće kolo</button>
+    <button class="tab" data-view="next">⏭️ Sljedeće kolo po ligama</button>
+    <button class="tab" data-view="nextPlayers">👤 Sljedeće kolo po igračima</button>
   </div>
   <div class="fdrlegend">
     <span>Težina protivnika (FDR):</span>
@@ -449,6 +451,7 @@ function renderView(){
   if(VIEW.tab === "players") return renderPlayersView(v);
   if(VIEW.tab === "leagues") return renderLeaguesView(v);
   if(VIEW.tab === "next") return renderNextView(v);
+  if(VIEW.tab === "nextPlayers") return renderNextByPlayers(v);
 }
 
 function renderPlayersView(v){
@@ -540,6 +543,41 @@ async function renderNextView(v){
       rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${lg.name}</div><table class="mtable nexttable">${rows}</table>`;
+  });
+  v.innerHTML = html;
+}
+
+async function renderNextByPlayers(v){
+  v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
+  await loadStrength();
+  const now = Date.now();
+  const jobs = [];
+  LEAGUES.forEach(lg => Object.entries(lg.picks).forEach(([p, club]) => {
+    jobs.push((async () => {
+      const id = await clubId(lg, club);
+      let next = null;
+      if(id){
+        const ev = await fetchSchedule(lg, id);
+        next = ev.find(m => m.state !== "post" && new Date(m.date).getTime() >= now - 86400000) || ev.find(m => m.state !== "post");
+      }
+      return { lg, p, club, id, next };
+    })());
+  }));
+  const results = await Promise.all(jobs);
+  if(VIEW.tab !== "nextPlayers") return; // korisnik je u meduvremenu promijenio prikaz
+  let html = "";
+  PLAYERS.forEach(p => {
+    let rows = "";
+    LEAGUES.forEach(lg => {
+      const r = results.find(x => x.p === p && x.lg === lg);
+      if(!r) return;
+      const { club, id, next } = r;
+      const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
+      const dfr = next ? fdrBadge(fdr(lg, next.oppId)) : "";
+      rows += `<tr><td class="muted">${lg.name}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
+    });
+    html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
   });
   v.innerHTML = html;
 }
