@@ -371,7 +371,8 @@ function rankToFdr(rank, n){
 }
 function fdr(lg, oppId){
   const m = STRENGTH && STRENGTH[lg.name];
-  if(!m || !oppId || !m[oppId]) return 2; // nepoznat/promaknut protivnik = lako
+  if(!m || !m.__n) return 2;          // podaci o jačini nisu učitani = neutralno
+  if(!oppId || !m[oppId]) return 1;   // tek promaknut klub (nema ga u zadnje 3 sezone) = najlakši
   return rankToFdr(m[oppId], m.__n);
 }
 function fdrBadge(d){ return `<span class="fdr fdr${d}" title="Tezina protivnika ${d}/5">${d}</span>`; }
