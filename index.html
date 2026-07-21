@@ -375,6 +375,22 @@ function fdr(lg, oppId){
   if(!oppId || !m[oppId]) return 1;   // tek promaknut klub (nema ga u zadnje 3 sezone) = najlakši
   return rankToFdr(m[oppId], m.__n);
 }
+
+// FDR iz kladioničkog koeficijenta (moneyline mog kluba) -> implicirana vjerojatnost pobjede
+function fdrFromOdds(ml){
+  if(ml === null || ml === undefined) return null;
+  const p = ml < 0 ? (-ml)/((-ml)+100) : 100/(ml+100);
+  if(p >= 0.60) return 1;   // veliki favorit = lako
+  if(p >= 0.45) return 2;
+  if(p >= 0.32) return 3;
+  if(p >= 0.20) return 4;
+  return 5;                 // veliki autsajder = teško
+}
+// hibrid: koeficijent ako postoji, inače procjena snage (3 sezone)
+function matchFdr(lg, m){
+  const o = m ? fdrFromOdds(m.myML) : null;
+  return (o !== null && o !== undefined) ? o : fdr(lg, m && m.oppId);
+}
 function fdrBadge(d){ return `<span class="fdr fdr${d}" title="Tezina protivnika ${d}/5">${d}</span>`; }
 
 let NBA_IDS = null;
@@ -404,6 +420,12 @@ function parseEvent(e, id, lg){
     else if(lg.type !== "nba" && opp && !opp.winner) res = "D";
     else res = "L";
   }
+  let myML = null;
+  const od = comp && comp.odds && comp.odds[0];
+  if(od){
+    const side = (me ? me.homeAway === "home" : true) ? od.homeTeamOdds : od.awayTeamOdds;
+    if(side && typeof side.moneyLine === "number") myML = side.moneyLine;
+  }
   return {
     id: e.id,
     date: e.date,
@@ -411,6 +433,7 @@ function parseEvent(e, id, lg){
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
     oppAbbr: (opp && opp.team) ? (opp.team.abbreviation || opp.team.shortDisplayName || "?") : "?",
     oppId: (opp && opp.team) ? opp.team.id : null,
+    myML,
     myScore: (me && me.score) ? (me.score.displayValue ?? me.score) : "",
     oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
     state, res
@@ -483,7 +506,7 @@ function fmtDate(iso, withTime){
 function matchRowHtml(m, myName, lg){
   const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
   const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "—");
-  const dfr = fdrBadge(fdr(lg, m.oppId));
+  const dfr = fdrBadge(matchFdr(lg, m));
   return `<tr><td class="muted">${fmtDate(m.date)}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td><td class="c">${dfr}</td></tr>`;
 }
 
@@ -599,7 +622,7 @@ async function renderNextView(v){
     results.filter(r => r.lg === lg).forEach(({p, club, id, next}) => {
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
-      const dfr = next ? fdrBadge(fdr(lg, next.oppId)) : "";
+      const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
       rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${lg.name}</div><table class="mtable nexttable">${rows}</table>`;
@@ -634,7 +657,7 @@ async function renderNextByPlayers(v){
       const { club, id, next } = r;
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
-      const dfr = next ? fdrBadge(fdr(lg, next.oppId)) : "";
+      const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
       rows += `<tr><td class="muted">${lg.name}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
@@ -687,15 +710,16 @@ async function renderFdrView(v){
     for(let i=0;i<maxN;i++){
       const m = ups[i];
       if(!m){ body += `<td class="fcell empty">—</td>`; continue; }
-      const d = fdr(lg, m.oppId); sum+=d; cnt++;
+      const d = matchFdr(lg, m); sum+=d; cnt++;
+      const src = (m.myML !== null && m.myML !== undefined) ? "kladionički koeficijent" : "procjena snage";
       const oppc = m.oppAbbr && m.oppAbbr !== "?" ? m.oppAbbr : m.opp;
-      body += `<td class="fcell fdr${d}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
+      body += `<td class="fcell fdr${d}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5 (${src})">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
     }
     const avg = cnt ? (sum/cnt).toFixed(1) : "—";
     body += `<td class="fdravg">${avg}</td></tr>`;
   });
   wrap.className = "";
-  wrap.innerHTML = `<div class="fdrnote">Stupci = sve preostale utakmice redom (1 = prva sljedeća). Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. Ø = prosječni FDR svih preostalih utakmica.</div>`
+  wrap.innerHTML = `<div class="fdrnote">Stupci = sve preostale utakmice redom (1 = prva sljedeća). Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. FDR se računa iz <b>kladioničkih koeficijenata</b> gdje postoje (bliska kola), inače iz procjene snage (zadnje 3 sezone). Ø = prosjek.</div>`
     + `<div class="fdrscroll"><table class="fdrgrid">${head}${body}</table></div>`;
 }
 
