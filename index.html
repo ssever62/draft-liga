@@ -6,12 +6,12 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
-<title>Draft Liga 2026/27 — Live tablica</title>
+<title>Klupica Draft Liga 2026/2027</title>
 <style>
   :root{
     --bg:#0f1420; --card:#1a2233; --card2:#141b2b; --border:#2a3550;
     --text:#e8ecf5; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166;
-    --green:#3ddc84; --red:#ff6b6b;
+    --green:#3ddc84; --red:#ff6b6b; --derby:#c084fc;
     font-size:15px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -38,7 +38,9 @@
   .rank1 td:first-child::after{content:" 👑";}
   h2{font-size:1.1rem; margin:26px 0 10px; color:var(--accent);}
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; position:relative; overflow:hidden;}
+  .card h3, .card table{position:relative; z-index:1;}
+  .cardwm{position:absolute; right:-18px; bottom:-18px; width:150px; height:150px; object-fit:contain; opacity:.07; pointer-events:none; z-index:0;}
   .card h3{font-size:.95rem; margin-bottom:8px;}
   .card table{background:transparent;}
   .card th,.card td{padding:5px 6px; font-size:.82rem;}
@@ -113,19 +115,50 @@
   .nexttable td:nth-child(4){width:54px;text-align:center;}
   .nexttable td:nth-child(5){width:130px;text-align:right;}
   .nexttable td{overflow:hidden;text-overflow:ellipsis;}
+  /* header + refresh */
+  .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
+  .titlewrap{min-width:0;}
+  .refreshbtn{display:inline-flex; align-items:center; gap:9px; background:var(--accent); color:#08111f; font-weight:800; font-size:1rem; padding:11px 22px; border-radius:999px; box-shadow:0 3px 12px rgba(77,163,255,.35); flex:0 0 auto;}
+  .refreshbtn .refspin{transform-origin:50% 50%; animation:refspin 2.4s linear infinite;}
+  .refreshbtn.loading .refspin{animation-duration:.6s;}
+  @keyframes refspin{to{transform:rotate(360deg);}}
+  /* FDR button gradient (zeleno→sivo→crveno) */
+  .navfdr{background:linear-gradient(90deg,#4ade80,#a3e635,#cbd5e1,#fb923c,#ef4444); color:#08111f; border:none; font-weight:800; text-shadow:0 1px 2px rgba(255,255,255,.35);}
+  .navfdr:hover{filter:brightness(1.06);}
+  /* drill-down bars */
+  .drilllabel{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:800; margin:2px 0 6px;}
+  .drillbar{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .chip{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:9px; padding:8px 14px; cursor:pointer; font-weight:700; font-size:.85rem; display:inline-flex; align-items:center; gap:7px;}
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{background:var(--accent); color:#08111f; border-color:var(--accent);}
+  .chip .chpts{font-size:.72rem; font-weight:800; color:var(--gold); background:rgba(0,0,0,.18); padding:0 6px; border-radius:6px;}
+  .chip.active .chpts{color:#08111f; background:rgba(255,255,255,.35);}
+  /* derby */
+  .derbybadge{background:var(--derby); color:#1a0b2e; font-weight:800; font-size:.6rem; padding:1px 6px; border-radius:4px; letter-spacing:.05em; vertical-align:middle; margin-left:5px;}
+  .derbyrow td{background:rgba(192,132,252,.12) !important;}
+  .fcell.derbycell{outline:2px solid var(--derby); outline-offset:-2px;}
 </style>
 </head>
 <body>
-  <h1>🏆 Draft Liga 2026/27 — Live tablica</h1>
-  <div class="sub">Nogomet: pobjeda 3 · remi 1 · poraz 0 &nbsp;|&nbsp; NBA: pobjeda 1 · poraz 0 &nbsp;|&nbsp; Podaci: ESPN (javni API)</div>
+  <div class="topbar">
+    <div class="titlewrap">
+      <h1>🏆 Klupica Draft Liga 2026/2027</h1>
+      <div class="sub">Nogomet: pobjeda 3 · remi 1 · poraz 0 &nbsp;|&nbsp; NBA: pobjeda 1 · poraz 0 &nbsp;|&nbsp; Podaci: ESPN (javni API)</div>
+    </div>
+    <button class="refreshbtn" id="refreshBtn" onclick="loadAll()">
+      <svg class="refspin" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M20.3 9.2A8.5 8.5 0 0 0 5 7.4" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+        <path d="M20.6 3.6v5.1h-5.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M3.7 14.8A8.5 8.5 0 0 0 19 16.6" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/>
+        <path d="M3.4 20.4v-5.1h5.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Osvježi</span>
+    </button>
+  </div>
   <div class="bar">
-    <button onclick="loadAll()">🔄 Osvježi</button>
-    <span class="barsep"></span>
-    <button class="navbtn" onclick="showView('players')">👤 Utakmice po igraču</button>
-    <button class="navbtn" onclick="showView('leagues')">🏆 Utakmice po ligama</button>
     <button class="navbtn" onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
     <button class="navbtn" onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
-    <button class="navbtn" onclick="showView('fdr')">📊 FDR po igraču</button>
+    <button class="navbtn navfdr" onclick="showView('fdr')">📊 FDR po igraču</button>
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
@@ -138,9 +171,6 @@
   <div class="tabs">
     <button class="tab" data-view="players">👤 Po igračima</button>
     <button class="tab" data-view="leagues">🏆 Po ligama</button>
-    <button class="tab" data-view="next">⏭️ Sljedeće kolo po ligama</button>
-    <button class="tab" data-view="nextPlayers">👤 Sljedeće kolo po igračima</button>
-    <button class="tab" data-view="fdr">📊 FDR po igraču</button>
   </div>
   <div class="fdrlegend">
     <span>Težina protivnika (FDR):</span>
@@ -247,15 +277,21 @@ function points(lg, row){
 
 async function loadAll(){
   const st = document.getElementById("status");
+  const rb = document.getElementById("refreshBtn");
+  if(rb) rb.classList.add("loading");
   st.textContent = "Učitavanje podataka…";
-  const results = await Promise.all(LEAGUES.map(async lg => {
-    try{
-      const rows = lg.type === "nba" ? await fetchNBA() : await fetchFootball(lg);
-      return { lg, rows, err:null };
-    }catch(e){ return { lg, rows:[], err:e.message }; }
-  }));
-  render(results);
-  st.textContent = "Zadnje osvježeno: " + new Date().toLocaleString("hr-HR");
+  try{
+    const results = await Promise.all(LEAGUES.map(async lg => {
+      try{
+        const rows = lg.type === "nba" ? await fetchNBA() : await fetchFootball(lg);
+        return { lg, rows, err:null };
+      }catch(e){ return { lg, rows:[], err:e.message }; }
+    }));
+    render(results);
+    st.textContent = "Zadnje osvježeno: " + new Date().toLocaleString("hr-HR");
+  } finally {
+    if(rb) rb.classList.remove("loading");
+  }
 }
 
 function render(results){
@@ -286,20 +322,19 @@ function render(results){
   // league cards
   let cards = "";
   results.forEach(({lg, rows, err}) => {
-    cards += `<div class="card"><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
+    cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
-    else if(!rows.length) cards += `<div class="err">Nema podataka za sezonu (još nije počela?)</div>`;
     cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
     Object.entries(lg.picks).forEach(([p, club], i) => {
       const s = scores[p][lg.name];
       const r = s.row;
       cards += `<tr><td>${i+1}</td><td>${p}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
-      else if(!r) cards += `<td class="err">${club} — nije nađen</td>`;
+      else if(!r) cards += `<td>${club}</td>`;
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
-      cards += `<td>${r ? r.w : "–"}</td>`;
-      if(lg.type !== "nba") cards += `<td>${r ? r.d : "–"}</td>`;
-      cards += `<td>${r ? r.l : "–"}</td><td class="pts">${s.pts}</td></tr>`;
+      cards += `<td>${r ? r.w : 0}</td>`;
+      if(lg.type !== "nba") cards += `<td>${r ? r.d : 0}</td>`;
+      cards += `<td>${r ? r.l : 0}</td><td class="pts">${s.pts}</td></tr>`;
     });
     cards += "</table></div>";
   });
@@ -496,6 +531,20 @@ async function clubId(lg, club){
   return null;
 }
 
+// Derbi = protivnik je također jedan od draftanih klubova u toj ligi
+let DERBY_IDS = {};
+async function ensureDerbyIds(lg){
+  if(DERBY_IDS[lg.name]) return DERBY_IDS[lg.name];
+  const ids = new Set();
+  await Promise.all(Object.values(lg.picks).map(async club => { const id = await clubId(lg, club); if(id) ids.add(String(id)); }));
+  DERBY_IDS[lg.name] = ids;
+  return ids;
+}
+function isDerby(lg, oppId){
+  const set = DERBY_IDS[lg.name];
+  return !!(set && oppId && set.has(String(oppId)));
+}
+
 function fmtDate(iso, withTime){
   const d = new Date(iso);
   if(isNaN(d)) return "";
@@ -504,10 +553,12 @@ function fmtDate(iso, withTime){
 }
 
 function matchRowHtml(m, myName, lg){
+  const derby = isDerby(lg, m.oppId);
   const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
+  const badge = derby ? ` <span class="derbybadge">DERBI</span>` : "";
   const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "—");
   const dfr = fdrBadge(matchFdr(lg, m));
-  return `<tr><td class="muted">${fmtDate(m.date)}</td><td>${vs}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td><td class="c">${dfr}</td></tr>`;
+  return `<tr class="${derby?'derbyrow':''}"><td class="muted">${fmtDate(m.date)}</td><td>${vs}${badge}</td><td class="c">${score}</td><td class="c"><span class="res ${m.res}">${m.res==="P"?"·":m.res}</span></td><td class="c">${dfr}</td></tr>`;
 }
 
 function crumb(parents, current){
@@ -538,29 +589,29 @@ function renderView(){
 }
 
 function renderPlayersView(v){
-  if(!VIEW.player){
-    const tot = totalsByPlayer();
-    v.innerHTML = `<div class="boxes">` + PLAYERS.map(p =>
-      `<div class="box" onclick="navPlayer('${p}')"><div class="bt">${p}</div><div class="bpts">${tot[p]} bod</div></div>`).join("") + `</div>`;
-    return;
-  }
+  const tot = totalsByPlayer();
+  let html = `<div class="drilllabel">Igrač</div><div class="drillbar">` +
+    PLAYERS.map(p => `<button class="chip ${VIEW.player===p?'active':''}" onclick="navPlayer('${p}')">${p}<span class="chpts">${tot[p]}</span></button>`).join("") + `</div>`;
   const p = VIEW.player;
-  if(!VIEW.league){
-    v.innerHTML = crumb([["playersRoot","","Igrači"]], p) +
-      `<div class="boxes">` + LEAGUES.map(lg => {
-        const club = lg.picks[p];
-        return `<div class="box" onclick="navPlayerLeague('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${club || "—"}</div></div>`;
-      }).join("") + `</div>`;
-    return;
+  if(p){
+    html += `<div class="drilllabel">Liga</div><div class="drillbar">` +
+      LEAGUES.map(lg => `<button class="chip ${VIEW.league===lg.name?'active':''}" onclick="navPlayerLeague('${lg.name}')">${lg.name}</button>`).join("") + `</div>`;
+    if(VIEW.league){
+      const lg = LEAGUES.find(l => l.name === VIEW.league);
+      const club = lg.picks[p];
+      html += `<div class="mhead">${club} <span class="lg">${p} · ${lg.name}</span></div><div id="mlist" class="muted">Učitavanje utakmica…</div>`;
+    }
   }
-  const lg = LEAGUES.find(l => l.name === VIEW.league);
-  const club = lg.picks[p];
-  v.innerHTML = crumb([["playersRoot","","Igrači"],["player",p,p]], `${club} · ${lg.name}`) + `<div id="mlist" class="muted">Učitavanje utakmica…</div>`;
-  loadClubMatches(lg, club, document.getElementById("mlist"));
+  v.innerHTML = html;
+  if(p && VIEW.league){
+    const lg = LEAGUES.find(l => l.name === VIEW.league);
+    loadClubMatches(lg, lg.picks[p], document.getElementById("mlist"));
+  }
 }
 
 async function loadClubMatches(lg, club, cell){
   await loadStrength();
+  await ensureDerbyIds(lg);
   const id = await clubId(lg, club);
   if(!id){ cell.textContent = "Klub nema podataka."; return; }
   const ev = await fetchSchedule(lg, id);
@@ -569,18 +620,21 @@ async function loadClubMatches(lg, club, cell){
 }
 
 function renderLeaguesView(v){
-  if(!VIEW.league){
-    v.innerHTML = `<div class="boxes">` + LEAGUES.map(lg =>
-      `<div class="box" onclick="navLeagueTop('${lg.name}')"><div class="bt">${lg.name}</div><div class="bs">${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo sm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}${Object.keys(lg.picks).length} kluba</div></div>`).join("") + `</div>`;
-    return;
+  let html = `<div class="drilllabel">Liga</div><div class="drillbar">` +
+    LEAGUES.map(lg => `<button class="chip ${VIEW.league===lg.name?'active':''}" onclick="navLeagueTop('${lg.name}')">${lg.name}</button>`).join("") + `</div>`;
+  if(VIEW.league){
+    html += `<div id="mlist" class="muted">Učitavanje utakmica…</div>`;
   }
-  const lg = LEAGUES.find(l => l.name === VIEW.league);
-  v.innerHTML = crumb([["leaguesRoot","","Lige"]], lg.name) + `<div id="mlist" class="muted">Učitavanje utakmica…</div>`;
-  loadLeagueMatches(lg, document.getElementById("mlist"));
+  v.innerHTML = html;
+  if(VIEW.league){
+    const lg = LEAGUES.find(l => l.name === VIEW.league);
+    loadLeagueMatches(lg, document.getElementById("mlist"));
+  }
 }
 
 async function loadLeagueMatches(lg, cell){
   await loadStrength();
+  await ensureDerbyIds(lg);
   // svi klubovi lige paralelno
   const results = await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
     const id = await clubId(lg, club);
@@ -600,6 +654,7 @@ async function loadLeagueMatches(lg, cell){
 async function renderNextView(v){
   v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
   await loadStrength();
+  await Promise.all(LEAGUES.map(ensureDerbyIds));
   const now = Date.now();
   // svi klubovi paralelno (puno brze nego jedan po jedan)
   const jobs = [];
@@ -620,10 +675,12 @@ async function renderNextView(v){
   LEAGUES.forEach(lg => {
     let rows = "";
     results.filter(r => r.lg === lg).forEach(({p, club, id, next}) => {
+      const derby = next && isDerby(lg, next.oppId);
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const badge = derby ? ` <span class="derbybadge">DERBI</span>` : "";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
-      rows += `<tr><td class="muted">${p}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
+      rows += `<tr class="${derby?'derbyrow':''}"><td class="muted">${p}</td><td>${club}</td><td>${vs}${badge}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${lg.name}</div><table class="mtable nexttable">${rows}</table>`;
   });
@@ -633,6 +690,7 @@ async function renderNextView(v){
 async function renderNextByPlayers(v){
   v.innerHTML = `<div class="muted">Učitavanje sljedećih utakmica…</div>`;
   await loadStrength();
+  await Promise.all(LEAGUES.map(ensureDerbyIds));
   const now = Date.now();
   const jobs = [];
   LEAGUES.forEach(lg => Object.entries(lg.picks).forEach(([p, club]) => {
@@ -655,10 +713,12 @@ async function renderNextByPlayers(v){
       const r = results.find(x => x.p === p && x.lg === lg);
       if(!r) return;
       const { club, id, next } = r;
+      const derby = next && isDerby(lg, next.oppId);
       const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const badge = derby ? ` <span class="derbybadge">DERBI</span>` : "";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
-      rows += `<tr><td class="muted">${lg.name}</td><td>${club}</td><td>${vs}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
+      rows += `<tr class="${derby?'derbyrow':''}"><td class="muted">${lg.name}</td><td>${club}</td><td>${vs}${badge}</td><td class="c">${dfr}</td><td class="muted">${ds}</td></tr>`;
     });
     html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
   });
@@ -679,6 +739,7 @@ async function renderFdrView(v){
   const p = VIEW.player;
   v.innerHTML = crumb([["fdrRoot","","FDR po igraču"]], p) + `<div id="fdrwrap" class="muted">Učitavanje rasporeda…</div>`;
   await loadStrength();
+  await Promise.all(LEAGUES.map(ensureDerbyIds));
   if(VIEW.tab !== "fdr" || VIEW.player !== p) return;
   const rowsData = await Promise.all(LEAGUES.map(async lg => {
     const club = lg.picks[p];
@@ -711,9 +772,10 @@ async function renderFdrView(v){
       const m = ups[i];
       if(!m){ body += `<td class="fcell empty">—</td>`; continue; }
       const d = matchFdr(lg, m); sum+=d; cnt++;
+      const derby = isDerby(lg, m.oppId);
       const src = (m.myML !== null && m.myML !== undefined) ? "kladionički koeficijent" : "procjena snage";
       const oppc = m.oppAbbr && m.oppAbbr !== "?" ? m.oppAbbr : m.opp;
-      body += `<td class="fcell fdr${d}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5 (${src})">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
+      body += `<td class="fcell fdr${d}${derby?' derbycell':''}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5 (${src})${derby?' · DERBI':''}">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
     }
     const avg = cnt ? (sum/cnt).toFixed(1) : "—";
     body += `<td class="fdravg">${avg}</td></tr>`;
