@@ -36,6 +36,24 @@
   .total{font-weight:800; color:var(--gold); font-size:1.05rem;}
   .rank1 td{background:rgba(255,209,102,.07);}
   .rank1 td:first-child::after{content:" 👑";}
+  .logomark{vertical-align:middle; margin-right:10px;}
+  h1{display:flex; align-items:center; gap:2px;}
+  /* glavna tablica */
+  #matrix{table-layout:fixed;}
+  #matrix th:first-child,#matrix td:first-child{width:46px;}
+  #matrix th.rankcol{text-align:center;}
+  #matrix .rankcell{text-align:center; color:var(--muted); font-weight:800;}
+  #matrix th:nth-child(2),#matrix td:nth-child(2){width:150px;}
+  #matrix td:nth-child(2){text-align:left; font-weight:700;}
+  #matrix th:last-child,#matrix td:last-child{width:96px;}
+  #matrix .lgcol{position:relative;}
+  #matrix .lgcol .thwm{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:32px; height:32px; object-fit:contain; opacity:.24; pointer-events:none;}
+  #matrix .lgcol span{position:relative; z-index:1;}
+  #matrix .goldrow td{background:rgba(255,209,102,.16);}
+  #matrix .redrow td{background:rgba(255,107,107,.13);}
+  #matrix .goldline td{border-bottom:3px solid var(--gold);}
+  #matrix .redline td{border-bottom:3px solid var(--red);}
+  #matrix .goldrow .pname::after{content:" 👑";}
   h2{font-size:1.1rem; margin:26px 0 10px; color:var(--accent);}
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; position:relative; overflow:hidden;}
@@ -123,7 +141,8 @@
   .refreshbtn.loading .refspin{animation-duration:.6s;}
   @keyframes refspin{to{transform:rotate(360deg);}}
   /* FDR button gradient (zeleno→sivo→crveno) */
-  .navfdr{background:linear-gradient(90deg,#4ade80,#a3e635,#cbd5e1,#fb923c,#ef4444); color:#08111f; border:none; font-weight:800; text-shadow:0 1px 2px rgba(255,255,255,.35);}
+  .navfdr{background:linear-gradient(90deg,#4ade80,#a3e635,#cbd5e1,#fb923c,#ef4444,#fb923c,#cbd5e1,#a3e635,#4ade80); background-size:200% 100%; animation:fdrshift 5s linear infinite; color:#08111f; border:none; font-weight:800; text-shadow:0 1px 2px rgba(255,255,255,.4);}
+  @keyframes fdrshift{from{background-position:0% 50%;} to{background-position:-200% 50%;}}
   .navfdr:hover{filter:brightness(1.06);}
   /* drill-down bars */
   .drilllabel{font-size:.7rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:800; margin:2px 0 6px;}
@@ -142,7 +161,7 @@
 <body>
   <div class="topbar">
     <div class="titlewrap">
-      <h1>🏆 Klupica Draft Liga 2026/2027</h1>
+      <h1><svg class="logomark" viewBox="0 0 64 64" width="42" height="42" aria-label="Klupica"><circle cx="32" cy="32" r="30" fill="#141b2b" stroke="#ffd166" stroke-width="3"/><g stroke="#ffd166" stroke-width="2.6" stroke-linecap="round" fill="none"><line x1="18" y1="24" x2="46" y2="24"/><line x1="18" y1="29" x2="46" y2="29"/><line x1="18" y1="34" x2="46" y2="34"/><line x1="20" y1="22" x2="20" y2="34"/><line x1="44" y1="22" x2="44" y2="34"/><line x1="14" y1="39" x2="50" y2="39"/><line x1="14" y1="39" x2="18" y2="31"/><line x1="50" y1="39" x2="46" y2="31"/><line x1="20" y1="39" x2="20" y2="48"/><line x1="44" y1="39" x2="44" y2="48"/></g></svg><span>Klupica Draft Liga 2026/2027</span></h1>
     </div>
     <button class="refreshbtn" id="refreshBtn" onclick="loadAll()">
       <svg class="refspin" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
@@ -305,11 +324,16 @@ function render(results){
     p, total: LEAGUES.reduce((s,lg) => s + scores[p][lg.name].pts, 0)
   })).sort((a,b) => b.total - a.total);
 
-  let html = "<thead><tr><th>Igrač</th>";
-  LEAGUES.forEach(lg => html += `<th>${lg.name}</th>`);
+  let html = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th>";
+  LEAGUES.forEach(lg => html += `<th class="lgcol">${LEAGUE_LOGOS[lg.name] ? `<img class="thwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span>${lg.name}</span></th>`);
   html += "<th>TOTAL</th></tr></thead><tbody>";
+  const nR = totals.length;
   totals.forEach((t,i) => {
-    html += `<tr class="${i===0 && t.total>0 ? "rank1" : ""}"><td>${t.p}</td>`;
+    const cls = [];
+    if(i===0) cls.push("goldrow","goldline");
+    if(i===nR-1) cls.push("redrow");
+    if(i===nR-2) cls.push("redline");
+    html += `<tr class="${cls.join(' ')}"><td class="rankcell">${i+1}</td><td class="pname">${t.p}</td>`;
     LEAGUES.forEach(lg => { html += `<td>${scores[t.p][lg.name].pts}</td>`; });
     html += `<td class="total">${t.total}</td></tr>`;
   });
