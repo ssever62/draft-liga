@@ -11,7 +11,7 @@
   :root{
     --bg:#0f1420; --card:#1a2233; --card2:#141b2b; --border:#2a3550;
     --text:#e8ecf5; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166;
-    --green:#3ddc84; --red:#ff6b6b; --derby:#c084fc;
+    --green:#3ddc84; --red:#ff6b6b; --derby:#c084fc; --crack:url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='120'%20height='12'%3E%3Cpath%20d='M0%206%20L10%204%20L16%209%20L24%203%20L30%2010%20L38%205%20L44%208%20L52%202%20L60%207%20L68%203%20L74%2010%20L82%205%20L90%208%20L98%203%20L106%207%20L114%204%20L120%206'%20fill='none'%20stroke='%23ff6b6b'%20stroke-width='1.7'/%3E%3Cpath%20d='M30%2010%20L33%2012%20M60%207%20L57%2012%20M90%208%20L93%2012%20M16%209%20L14%2012'%20stroke='%23ff6b6b'%20stroke-width='1'/%3E%3C/svg%3E");
     font-size:15px;
   }
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -50,11 +50,12 @@
   #matrix .lgcol .thwm{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:32px; height:32px; object-fit:contain; opacity:.24; pointer-events:none;}
   #matrix .lgcol span{position:relative; z-index:1;}
   #matrix .goldrow td{background:rgba(255,209,102,.16);}
-  #matrix .redrow td{background:rgba(255,107,107,.13);}
-  .card .lgleader td{border-bottom:2px solid var(--gold);}
-  .smalltrophy{font-size:.82em;}
+  #matrix .redrow td{background:rgba(255,107,107,.13); border-bottom:6px solid transparent; border-image:var(--crack) 0 0 100% 0 / 0 0 6px 0 round;}
+  .card .lgleader td{background:rgba(255,209,102,.06); border-bottom:2px solid var(--gold);}
+  .smalltrophy{font-size:.95em;}
+  .card .countdown{position:absolute; top:10px; right:12px; z-index:2; font-size:.62rem; font-weight:800; color:var(--gold); background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:2px 7px; letter-spacing:.02em; font-variant-numeric:tabular-nums;}
   #matrix .goldline td{border-bottom:3px solid var(--gold);}
-  #matrix .redline td{border-bottom:3px dashed var(--red);}
+  #matrix .redline td{border-bottom:6px solid transparent; border-image:var(--crack) 0 0 100% 0 / 0 0 6px 0 round;}
   #matrix .goldrow .pname::after{content:" 🏆"; font-size:1.05em;}
   h2{font-size:1.1rem; margin:26px 0 10px; color:var(--accent);}
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;}
@@ -345,7 +346,7 @@ function render(results){
   // league cards
   let cards = "";
   results.forEach(({lg, rows, err}) => {
-    cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
+    cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span class="countdown" data-lg="${lg.name}" title="Odbrojavanje do prve utakmice">—</span><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
     cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
     const _entries = Object.entries(lg.picks);
@@ -354,7 +355,7 @@ function render(results){
     _entries.forEach(([p, club], i) => {
       const s = scores[p][lg.name];
       const r = s.row;
-      cards += `<tr class="${i===_lead?'lgleader':''}"><td>${i+1}</td><td>${p}${i===_lead?' <span class="smalltrophy">🏆</span>':''}</td>`;
+      cards += `<tr class="${i===_lead?'lgleader':''}"><td>${i+1}</td><td>${p}${i===_lead?' <span class="smalltrophy">🥇</span>':''}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
       else if(!r) cards += `<td>${club}</td>`;
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
@@ -366,6 +367,7 @@ function render(results){
   });
   document.getElementById("cards").innerHTML = cards;
   initViewer(results);
+  startCountdowns();
 }
 
 let LEAGUE_ROWS = {};
@@ -809,6 +811,41 @@ async function renderFdrView(v){
   wrap.className = "";
   wrap.innerHTML = `<div class="fdrnote">Stupci = sve preostale utakmice redom (1 = prva sljedeća). Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. FDR se računa iz <b>kladioničkih koeficijenata</b> gdje postoje (bliska kola), inače iz procjene snage (zadnje 3 sezone). Ø = prosjek.</div>`
     + `<div class="fdrscroll"><table class="fdrgrid">${head}${body}</table></div>`;
+}
+
+let LEAGUE_FIRST = {};
+let CD_TIMER = null;
+async function startCountdowns(){
+  try{ await updateCountdownTargets(); }catch(e){}
+  if(!CD_TIMER) CD_TIMER = setInterval(tickCountdowns, 1000);
+  tickCountdowns();
+}
+async function updateCountdownTargets(){
+  await Promise.all(LEAGUES.map(async lg => {
+    const now = Date.now();
+    let best = null;
+    await Promise.all(Object.values(lg.picks).map(async club => {
+      const id = await clubId(lg, club);
+      if(!id) return;
+      const ev = await fetchSchedule(lg, id);
+      ev.forEach(m => { if(m.state !== "post"){ const t = new Date(m.date).getTime(); if(!isNaN(t) && t >= now - 3600000 && (best === null || t < best)) best = t; } });
+    }));
+    LEAGUE_FIRST[lg.name] = best;
+  }));
+}
+function tickCountdowns(){
+  const now = Date.now();
+  document.querySelectorAll(".countdown").forEach(el => {
+    const t = LEAGUE_FIRST[el.dataset.lg];
+    if(!t){ el.textContent = "⏱ —"; return; }
+    let diff = t - now;
+    if(diff <= 0){ el.textContent = "▶ UŽIVO"; return; }
+    const d = Math.floor(diff/86400000); diff -= d*86400000;
+    const h = Math.floor(diff/3600000); diff -= h*3600000;
+    const m = Math.floor(diff/60000); diff -= m*60000;
+    const s = Math.floor(diff/1000);
+    el.textContent = `⏱ ${d}d ${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+  });
 }
 
 loadAll();
