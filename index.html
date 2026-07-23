@@ -51,9 +51,11 @@
   #matrix .lgcol span{position:relative; z-index:1;}
   #matrix .goldrow td{background:rgba(255,209,102,.16);}
   #matrix .redrow td{background:rgba(255,107,107,.13);}
+  .card .lgleader td{border-bottom:2px solid var(--gold);}
+  .smalltrophy{font-size:.82em;}
   #matrix .goldline td{border-bottom:3px solid var(--gold);}
-  #matrix .redline td{border-bottom:3px solid var(--red);}
-  #matrix .goldrow .pname::after{content:" 👑";}
+  #matrix .redline td{border-bottom:3px dashed var(--red);}
+  #matrix .goldrow .pname::after{content:" 🏆"; font-size:1.05em;}
   h2{font-size:1.1rem; margin:26px 0 10px; color:var(--accent);}
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px;}
   .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px 16px; position:relative; overflow:hidden;}
@@ -346,10 +348,13 @@ function render(results){
     cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
     cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
-    Object.entries(lg.picks).forEach(([p, club], i) => {
+    const _entries = Object.entries(lg.picks);
+    let _max = -1, _lead = -1;
+    _entries.forEach(([pp], i) => { const pt = scores[pp][lg.name].pts; if(pt > _max){ _max = pt; _lead = i; } });
+    _entries.forEach(([p, club], i) => {
       const s = scores[p][lg.name];
       const r = s.row;
-      cards += `<tr><td>${i+1}</td><td>${p}</td>`;
+      cards += `<tr class="${i===_lead?'lgleader':''}"><td>${i+1}</td><td>${p}${i===_lead?' <span class="smalltrophy">🏆</span>':''}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
       else if(!r) cards += `<td>${club}</td>`;
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
