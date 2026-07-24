@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Odabrani klubovi — Klupica Draft Liga</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{ --bg:#0f1420; --card:#1a2233; --card2:#141b2b; --border:#2a3550; --text:#e8ecf5; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166; --green:#3ddc84; --red:#ff6b6b; font-size:15px;}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:24px 16px; max-width:1200px; margin:0 auto;}
+  .top{display:flex; align-items:center; gap:14px; margin-bottom:6px;}
+  .top img{height:60px;}
+  h1{font-size:1.5rem;}
+  .back{display:inline-block; margin-bottom:16px; color:var(--accent); text-decoration:none; font-weight:700; font-size:.9rem;}
+  .back:hover{text-decoration:underline;}
+  .sub{color:var(--muted); font-size:.82rem; margin-bottom:16px;}
+  #map{height:560px; width:100%; border-radius:14px; border:1px solid var(--border); margin-bottom:8px; background:var(--card2); z-index:1;}
+  .maphint{color:var(--muted); font-size:.75rem; margin-bottom:26px;}
+  h2{font-size:1.15rem; color:var(--accent); margin:24px 0 12px;}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
+  .cc{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center;}
+  .cc img.crest{width:44px; height:44px; object-fit:contain; flex:0 0 44px;}
+  .cc .nm{font-weight:800; font-size:.98rem;}
+  .cc .pl{color:var(--gold); font-weight:700; font-size:.8rem;}
+  .cc .st{color:var(--muted); font-size:.76rem; margin-top:4px; line-height:1.4;}
+  .cc .st b{color:var(--text); font-weight:700;}
+  .lgh{display:flex; align-items:center; gap:8px; margin:22px 0 10px;}
+  .lgh img{height:22px;}
+  .lgh span{font-weight:800; font-size:1rem;}
+  /* leaflet marker crest */
+  .mk{width:34px; height:34px; border-radius:50%; background:#fff; border:2px solid var(--gold); object-fit:contain; box-shadow:0 2px 6px rgba(0,0,0,.5); padding:1px;}
+  .leaflet-popup-content-wrapper{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px;}
+  .leaflet-popup-tip{background:var(--card); border:1px solid var(--border);}
+  .leaflet-popup-content{margin:10px 12px; font-size:.85rem;}
+  .pop .ph{display:flex; gap:10px; align-items:center; margin-bottom:6px;}
+  .pop .ph img{width:38px; height:38px; object-fit:contain;}
+  .pop .ph b{font-size:.95rem;}
+  .pop .ph .pl{color:var(--gold); font-weight:700; font-size:.78rem;}
+  .pop .ps{color:var(--muted); font-size:.78rem; line-height:1.5;}
+  .pop .ps b{color:var(--text);}
+  .foot{margin-top:30px; color:var(--muted); font-size:.72rem; line-height:1.5;}
+</style>
+</head>
+<body>
+  <a class="back" href="./">← Natrag na tablicu</a>
+  <div class="top">
+    <img src="c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png" alt="Klupica">
+    <div><h1>Odabrani klubovi</h1><div class="sub">Karta zapadne Europe s klubovima svih igrača — grb, klub, igrač, vrijednost (Transfermarkt), pozicija i bodovi prošle sezone.</div></div>
+  </div>
+  <div id="map"></div>
+  <div class="maphint">Klikni na grb za detalje. Povuci/zoomiraj kartu. Neki gradovi (npr. London) imaju više klubova — zoomiraj za razdvajanje.</div>
+
+  <div id="leaguelists"></div>
+
+  <h2>🏀 NBA (SAD — izvan karte)</h2>
+  <div class="grid" id="nbalist"></div>
+
+  <div class="foot">
+    Pozicija i bodovi = konačni poredak prošle sezone (2025/26, izvor ESPN). Vrijednost momčadi = Transfermarkt (orijentacijski, ~srpanj 2026). Karta: Leaflet / © OpenStreetMap suradnici.
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+const LEAGUE_LOGOS = {
+  "Premier League":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png",
+  "La Liga":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/15.png",
+  "Serie A":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/12.png",
+  "Bundesliga":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/10.png",
+  "Ligue 1":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/9.png"
+};
+const CLUBS = [
+  {lg:"Premier League",code:"eng.1",name:"Tottenham Hotspur",player:"Hrvoje",city:"London",lat:51.6043,lon:-0.0665,tm:"€920.5m"},
+  {lg:"Premier League",code:"eng.1",name:"Chelsea",player:"Ogi",city:"London",lat:51.4817,lon:-0.1910,tm:"€1.31bn"},
+  {lg:"Premier League",code:"eng.1",name:"Newcastle United",player:"Šimo",city:"Newcastle",lat:54.9756,lon:-1.6216,tm:"€601.8m"},
+  {lg:"Premier League",code:"eng.1",name:"Crystal Palace",player:"Jura",city:"London",lat:51.3983,lon:-0.0855,tm:"€550.6m"},
+  {lg:"Premier League",code:"eng.1",name:"Leeds United",player:"Majić",city:"Leeds",lat:53.7778,lon:-1.5721,tm:"€408.6m"},
+  {lg:"Premier League",code:"eng.1",name:"Fulham",player:"Kavur",city:"London",lat:51.4749,lon:-0.2217,tm:"€301.3m"},
+  {lg:"La Liga",code:"esp.1",name:"Real Sociedad",player:"Ogi",city:"San Sebastián",lat:43.3013,lon:-1.9738,tm:"€253.5m"},
+  {lg:"La Liga",code:"esp.1",name:"Athletic Club",player:"Jura",city:"Bilbao",lat:43.2641,lon:-2.9497,tm:"€250.9m"},
+  {lg:"La Liga",code:"esp.1",name:"Sevilla",player:"Hrvoje",city:"Sevilla",lat:37.3840,lon:-5.9705,tm:"€142.4m"},
+  {lg:"La Liga",code:"esp.1",name:"Deportivo La Coruña",player:"Kavur",city:"A Coruña",lat:43.3623,lon:-8.4115,tm:"€80.9m"},
+  {lg:"La Liga",code:"esp.1",name:"Espanyol",player:"Šimo",city:"Barcelona",lat:41.3475,lon:2.0762,tm:"€118.0m"},
+  {lg:"La Liga",code:"esp.1",name:"Osasuna",player:"Majić",city:"Pamplona",lat:42.7969,lon:-1.6371,tm:"€67.0m"},
+  {lg:"Serie A",code:"ita.1",name:"Fiorentina",player:"Jura",city:"Firenca",lat:43.7809,lon:11.2820,tm:"€318.0m"},
+  {lg:"Serie A",code:"ita.1",name:"Torino",player:"Kavur",city:"Torino",lat:45.0415,lon:7.6501,tm:"€113.1m"},
+  {lg:"Serie A",code:"ita.1",name:"Sassuolo",player:"Ogi",city:"Reggio Emilia",lat:44.7135,lon:10.6350,tm:"€171.9m"},
+  {lg:"Serie A",code:"ita.1",name:"Udinese",player:"Majić",city:"Udine",lat:46.0813,lon:13.2000,tm:"€200.3m"},
+  {lg:"Serie A",code:"ita.1",name:"Parma",player:"Hrvoje",city:"Parma",lat:44.7952,lon:10.3381,tm:"€197.2m"},
+  {lg:"Serie A",code:"ita.1",name:"Genoa",player:"Šimo",city:"Genova",lat:44.4165,lon:8.9526,tm:"€173.7m"},
+  {lg:"Bundesliga",code:"ger.1",name:"Eintracht Frankfurt",player:"Kavur",city:"Frankfurt",lat:50.0686,lon:8.6455,tm:"€337.4m"},
+  {lg:"Bundesliga",code:"ger.1",name:"Mainz",player:"Majić",city:"Mainz",lat:49.9840,lon:8.2247,tm:"€168.8m"},
+  {lg:"Bundesliga",code:"ger.1",name:"FC Augsburg",player:"Jura",city:"Augsburg",lat:48.3237,lon:10.8862,tm:"€164.3m"},
+  {lg:"Bundesliga",code:"ger.1",name:"FC Cologne",player:"Šimo",city:"Köln",lat:50.9333,lon:6.9750,tm:"€126.9m"},
+  {lg:"Bundesliga",code:"ger.1",name:"Borussia Mönchengladbach",player:"Ogi",city:"Mönchengladbach",lat:51.1745,lon:6.3856,tm:"€134.5m"},
+  {lg:"Bundesliga",code:"ger.1",name:"1. FC Union Berlin",player:"Hrvoje",city:"Berlin",lat:52.4573,lon:13.5681,tm:"€109.9m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Nice",player:"Majić",city:"Nica",lat:43.7050,lon:7.1926,tm:"€143.1m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Strasbourg",player:"Šimo",city:"Strasbourg",lat:48.5600,lon:7.7550,tm:"€366.3m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Paris FC",player:"Kavur",city:"Pariz",lat:48.8566,lon:2.3522,tm:"€176.5m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Toulouse",player:"Hrvoje",city:"Toulouse",lat:43.5832,lon:1.4340,tm:"€147.0m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Brest",player:"Jura",city:"Brest",lat:48.4029,lon:-4.4615,tm:"€59.6m"},
+  {lg:"Ligue 1",code:"fra.1",name:"Angers",player:"Ogi",city:"Angers",lat:47.4602,lon:-0.5307,tm:"€74.9m"}
+];
+const NBA_CLUBS = [
+  {name:"Miami Heat",player:"Šimo"},{name:"Washington Wizards",player:"Hrvoje"},{name:"Indiana Pacers",player:"Majić"},
+  {name:"Dallas Mavericks",player:"Ogi"},{name:"Golden State Warriors",player:"Kavur"},{name:"LA Clippers",player:"Jura"}
+];
+const LG_ORDER = ["Premier League","La Liga","Serie A","Bundesliga","Ligue 1"];
+
+function findRow(rows, wanted){
+  const w = norm(wanted);
+  return rows.find(r=>norm(r.team)===w) || rows.find(r=>norm(r.team).includes(w)||w.includes(norm(r.team))) || null;
+}
+async function leagueStandings(code){
+  const rows=[];
+  try{
+    const d=await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${code}/standings?season=2025`).then(r=>r.json());
+    (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; const lg=(o.team.logos&&o.team.logos[0]&&o.team.logos[0].href)||(o.team.id?`https://a.espncdn.com/i/teamlogos/soccer/500/${o.team.id}.png`:""); rows.push({team:o.team.displayName,id:o.team.id,logo:lg,pts:g("points"),played:g("gamesPlayed"),rank:g("rank")}); return;} for(const k in o) walk(o[k]); })(d);
+  }catch(e){}
+  rows.sort((a,b)=>b.pts-a.pts);
+  rows.forEach((r,i)=>r.pos=i+1);
+  return rows;
+}
+async function nbaStandings(){
+  const rows=[];
+  try{
+    const d=await fetch("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2026").then(r=>r.json());
+    (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ const g=n=>{const x=o.stats.find(y=>y.name===n);return x?+x.value:0;}; const lg=(o.team.logos&&o.team.logos[0]&&o.team.logos[0].href)||(o.team.id?`https://a.espncdn.com/i/teamlogos/nba/500/${o.team.id}.png`:""); rows.push({team:o.team.displayName,id:o.team.id,logo:lg,w:g("wins"),l:g("losses")}); return;} for(const k in o) walk(o[k]); })(d);
+  }catch(e){}
+  return rows;
+}
+
+const map = L.map('map',{scrollWheelZoom:true, minZoom:3, maxZoom:12}).setView([47.5,4],5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:12}).addTo(map);
+
+function crestOf(row, fallbackName){ return (row&&row.logo) || ""; }
+function pop(c, row){
+  const logo = crestOf(row) || "";
+  const pos = row&&row.played>0 ? row.pos+"." : "—";
+  const pts = row&&row.played>0 ? row.pts : "—";
+  return `<div class="pop"><div class="ph">${logo?`<img src="${logo}" onerror="this.style.display='none'">`:""}<div><b>${c.name}</b><br><span class="pl">${c.player}</span> · <span style="color:var(--muted)">${c.lg}</span></div></div>`
+    + `<div class="ps">📍 ${c.city}<br>💰 Vrijednost: <b>${c.tm}</b><br>📊 Pozicija (25/26): <b>${pos}</b><br>⭐ Bodovi (25/26): <b>${pts}</b></div></div>`;
+}
+
+async function build(){
+  const maps={};
+  await Promise.all(LG_ORDER.map(async lgn=>{ const code=CLUBS.find(c=>c.lg===lgn).code; maps[lgn]=await leagueStandings(code); }));
+  const bounds=[];
+  // markers + list
+  let listHtml="";
+  LG_ORDER.forEach(lgn=>{
+    listHtml += `<div class="lgh">${LEAGUE_LOGOS[lgn]?`<img src="${LEAGUE_LOGOS[lgn]}" onerror="this.style.display='none'">`:""}<span>${lgn}</span></div><div class="grid">`;
+    CLUBS.filter(c=>c.lg===lgn).forEach(c=>{
+      const row=findRow(maps[lgn]||[], c.name);
+      const logo=crestOf(row)||"";
+      const pos=row&&row.played>0?row.pos+".":"—";
+      const pts=row&&row.played>0?row.pts:"—";
+      // marker
+      const icon=L.divIcon({className:'', html:`<img class="mk" src="${logo}" onerror="this.style.display='none'">`, iconSize:[34,34], iconAnchor:[17,17]});
+      L.marker([c.lat,c.lon],{icon}).addTo(map).bindPopup(pop(c,row)).bindTooltip(`${c.name} · ${c.player}`);
+      bounds.push([c.lat,c.lon]);
+      // card
+      listHtml += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player} · ${c.city}</div><div class="st">💰 <b>${c.tm}</b> &nbsp;·&nbsp; 📊 <b>${pos}</b> &nbsp;·&nbsp; ⭐ <b>${pts}</b> bod</div></div></div>`;
+    });
+    listHtml += `</div>`;
+  });
+  document.getElementById("leaguelists").innerHTML=listHtml;
+  if(bounds.length) map.fitBounds(bounds,{padding:[40,40]});
+  // NBA
+  const nba=await nbaStandings();
+  let nh="";
+  NBA_CLUBS.forEach(c=>{
+    const row=findRow(nba,c.name);
+    const logo=(row&&row.logo)||"";
+    const rec=row?`${row.w}-${row.l}`:"—";
+    nh += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
+  });
+  document.getElementById("nbalist").innerHTML=nh;
+}
+build();
+</script>
+</body>
+</html>
