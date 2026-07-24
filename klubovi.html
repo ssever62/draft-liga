@@ -48,7 +48,7 @@
   <a class="back" href="./">← Natrag na tablicu</a>
   <div class="top">
     <img src="c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png" alt="Klupica">
-    <div><h1>Odabrani klubovi</h1><div class="sub">Karta zapadne Europe s klubovima svih igrača — grb, klub, igrač, vrijednost (Transfermarkt), pozicija i bodovi prošle sezone.</div></div>
+    <div><h1>Odabrani klubovi</h1></div>
   </div>
   <div id="map"></div>
   <div class="maphint">Klikni na grb za detalje. Povuci/zoomiraj kartu. Neki gradovi (npr. London) imaju više klubova — zoomiraj za razdvajanje.</div>
@@ -134,7 +134,7 @@ async function nbaStandings(){
 }
 
 const map = L.map('map',{scrollWheelZoom:true, minZoom:3, maxZoom:12}).setView([47.5,4],5);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:12}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',attribution:'© OpenStreetMap © CARTO',maxZoom:12}).addTo(map);
 
 function crestOf(row, fallbackName){ return (row&&row.logo) || ""; }
 function pop(c, row){
