@@ -22,7 +22,9 @@
   .maphint{color:var(--muted); font-size:.75rem; margin-bottom:26px;}
   h2{font-size:1.15rem; color:var(--accent); margin:24px 0 12px;}
   .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
-  .cc{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center;}
+  .cc{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:center; position:relative;}
+  .cc .ccplayer{position:absolute; top:8px; right:12px; color:var(--gold); font-weight:800; font-size:.78rem;}
+  .cc .nm{padding-right:56px;}
   .cc img.crest{width:44px; height:44px; object-fit:contain; flex:0 0 44px;}
   .cc .nm{font-weight:800; font-size:.98rem;}
   .cc .pl{color:var(--gold); font-weight:700; font-size:.8rem;}
@@ -183,7 +185,7 @@ async function build(){
       const pos = c.na ? "N/A" : (row&&row.played>0?row.pos+".":"N/A");
       const pts = c.na ? "N/A" : (row&&row.played>0?row.pts:"N/A");
       cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(footPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
-      listHtml += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player} · ${c.city}</div><div class="st">💰 <b>${c.tm}</b> &nbsp;·&nbsp; 📊 <b>${pos}</b> &nbsp;·&nbsp; ⭐ <b>${pts}</b> bod</div></div></div>`;
+      listHtml += `<div class="cc"><span class="ccplayer">${c.player}</span>${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.city}</div><div class="st">💰 <b>${c.tm}</b> &nbsp;·&nbsp; 📊 <b>${pos}</b> &nbsp;·&nbsp; ⭐ <b>${pts}</b> bod</div></div></div>`;
     });
     listHtml += `</div>`;
   });
@@ -194,7 +196,7 @@ async function build(){
     const logo=(row&&row.logo)||"";
     const rec=row?`${row.w}-${row.l}`:"N/A";
     cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(nbaPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
-    nh += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player} · ${c.city}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
+    nh += `<div class="cc"><span class="ccplayer">${c.player}</span>${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.city}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
   });
   document.getElementById("nbalist").innerHTML=nh;
   try{ map.fitBounds(cluster.getBounds(),{padding:[35,35]}); }catch(e){}
