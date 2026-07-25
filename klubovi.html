@@ -7,6 +7,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>Odabrani klubovi — Klupica Draft Liga</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
 <style>
   :root{ --bg:#0f1420; --card:#1a2233; --card2:#141b2b; --border:#2a3550; --text:#e8ecf5; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166; --green:#3ddc84; --red:#ff6b6b; font-size:15px;}
   *{box-sizing:border-box; margin:0; padding:0;}
@@ -41,6 +42,8 @@
   .pop .ph .pl{color:var(--gold); font-weight:700; font-size:.78rem;}
   .pop .ps{color:var(--muted); font-size:.78rem; line-height:1.5;}
   .pop .ps b{color:var(--text);}
+  .marker-cluster{background:rgba(255,209,102,.28)!important;}
+  .marker-cluster div{background:var(--gold)!important; color:#08111f!important; font-weight:800!important;}
   .foot{margin-top:30px; color:var(--muted); font-size:.72rem; line-height:1.5;}
 </style>
 </head>
@@ -55,7 +58,7 @@
 
   <div id="leaguelists"></div>
 
-  <h2>🏀 NBA (SAD — izvan karte)</h2>
+  <h2>🏀 NBA (SAD)</h2>
   <div class="grid" id="nbalist"></div>
 
   <div class="foot">
@@ -63,6 +66,7 @@
   </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 <script>
 const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
 const LEAGUE_LOGOS = {
@@ -82,7 +86,7 @@ const CLUBS = [
   {lg:"La Liga",code:"esp.1",name:"Real Sociedad",player:"Ogi",city:"San Sebastián",lat:43.3013,lon:-1.9738,tm:"€253.5m"},
   {lg:"La Liga",code:"esp.1",name:"Athletic Club",player:"Jura",city:"Bilbao",lat:43.2641,lon:-2.9497,tm:"€250.9m"},
   {lg:"La Liga",code:"esp.1",name:"Sevilla",player:"Hrvoje",city:"Sevilla",lat:37.3840,lon:-5.9705,tm:"€142.4m"},
-  {lg:"La Liga",code:"esp.1",name:"Deportivo La Coruña",player:"Kavur",city:"A Coruña",lat:43.3623,lon:-8.4115,tm:"€80.9m"},
+  {lg:"La Liga",code:"esp.1",name:"Deportivo La Coruña",player:"Kavur",city:"A Coruña",lat:43.3623,lon:-8.4115,tm:"€80.9m",logo:"https://a.espncdn.com/i/teamlogos/soccer/500/90.png",na:true},
   {lg:"La Liga",code:"esp.1",name:"Espanyol",player:"Šimo",city:"Barcelona",lat:41.3475,lon:2.0762,tm:"€118.0m"},
   {lg:"La Liga",code:"esp.1",name:"Osasuna",player:"Majić",city:"Pamplona",lat:42.7969,lon:-1.6371,tm:"€67.0m"},
   {lg:"Serie A",code:"ita.1",name:"Fiorentina",player:"Jura",city:"Firenca",lat:43.7809,lon:11.2820,tm:"€318.0m"},
@@ -105,8 +109,12 @@ const CLUBS = [
   {lg:"Ligue 1",code:"fra.1",name:"Angers",player:"Ogi",city:"Angers",lat:47.4602,lon:-0.5307,tm:"€74.9m"}
 ];
 const NBA_CLUBS = [
-  {name:"Miami Heat",player:"Šimo"},{name:"Washington Wizards",player:"Hrvoje"},{name:"Indiana Pacers",player:"Majić"},
-  {name:"Dallas Mavericks",player:"Ogi"},{name:"Golden State Warriors",player:"Kavur"},{name:"LA Clippers",player:"Jura"}
+  {name:"Miami Heat",player:"Šimo",city:"Miami",lat:25.7814,lon:-80.1870},
+  {name:"Washington Wizards",player:"Hrvoje",city:"Washington",lat:38.8981,lon:-77.0209},
+  {name:"Indiana Pacers",player:"Majić",city:"Indianapolis",lat:39.7640,lon:-86.1555},
+  {name:"Dallas Mavericks",player:"Ogi",city:"Dallas",lat:32.7905,lon:-96.8103},
+  {name:"Golden State Warriors",player:"Kavur",city:"San Francisco",lat:37.7680,lon:-122.3877},
+  {name:"LA Clippers",player:"Jura",city:"Los Angeles",lat:33.9450,lon:-118.3412}
 ];
 const LG_ORDER = ["Premier League","La Liga","Serie A","Bundesliga","Ligue 1"];
 
@@ -133,52 +141,63 @@ async function nbaStandings(){
   return rows;
 }
 
-const map = L.map('map',{scrollWheelZoom:true, minZoom:3, maxZoom:12}).setView([47.5,4],5);
+const map = L.map('map',{scrollWheelZoom:true, minZoom:2, maxZoom:12, worldCopyJump:true}).setView([44,-30],3);
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{subdomains:'abcd',attribution:'© OpenStreetMap © CARTO',maxZoom:12}).addTo(map);
 
-function crestOf(row, fallbackName){ return (row&&row.logo) || ""; }
-function pop(c, row){
-  const logo = crestOf(row) || "";
-  const pos = row&&row.played>0 ? row.pos+"." : "—";
-  const pts = row&&row.played>0 ? row.pts : "—";
+// blago obojaj države iz kojih su birani klubovi
+const HL_COUNTRIES = ["GBR","ESP","ITA","DEU","FRA","USA"];
+fetch("https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json").then(r=>r.json()).then(g=>{
+  const feats = g.features.filter(f=>HL_COUNTRIES.includes(f.id));
+  L.geoJSON({type:"FeatureCollection",features:feats},{interactive:false, style:{color:"#4da3ff", weight:1, opacity:0.35, fillColor:"#2f6fed", fillOpacity:0.14}}).addTo(map);
+}).catch(()=>{});
+
+const cluster = L.markerClusterGroup({maxClusterRadius:34, showCoverageOnHover:false, spiderfyOnMaxZoom:true, spiderfyDistanceMultiplier:1.7});
+map.addLayer(cluster);
+
+function crestOf(c,row){ return (row&&row.logo) || (c&&c.logo) || ""; }
+function mkIcon(logo){ return L.divIcon({className:'', html:`<img class="mk" src="${logo}" onerror="this.style.display='none'">`, iconSize:[32,32], iconAnchor:[16,16]}); }
+function footPop(c,row){
+  const logo=crestOf(c,row);
+  const pos = c.na ? "N/A" : (row&&row.played>0 ? row.pos+"." : "N/A");
+  const pts = c.na ? "N/A" : (row&&row.played>0 ? row.pts : "N/A");
   return `<div class="pop"><div class="ph">${logo?`<img src="${logo}" onerror="this.style.display='none'">`:""}<div><b>${c.name}</b><br><span class="pl">${c.player}</span> · <span style="color:var(--muted)">${c.lg}</span></div></div>`
     + `<div class="ps">📍 ${c.city}<br>💰 Vrijednost: <b>${c.tm}</b><br>📊 Pozicija (25/26): <b>${pos}</b><br>⭐ Bodovi (25/26): <b>${pts}</b></div></div>`;
+}
+function nbaPop(c,row){
+  const logo=(row&&row.logo)||"";
+  const rec=row?`${row.w}-${row.l}`:"N/A";
+  return `<div class="pop"><div class="ph">${logo?`<img src="${logo}" onerror="this.style.display='none'">`:""}<div><b>${c.name}</b><br><span class="pl">${c.player}</span> · <span style="color:var(--muted)">NBA</span></div></div>`
+    + `<div class="ps">📍 ${c.city} 🇺🇸<br>💰 Vrijednost: <b>N/A</b><br>⭐ Prošla sezona: <b>${rec}</b></div></div>`;
 }
 
 async function build(){
   const maps={};
   await Promise.all(LG_ORDER.map(async lgn=>{ const code=CLUBS.find(c=>c.lg===lgn).code; maps[lgn]=await leagueStandings(code); }));
-  const bounds=[];
-  // markers + list
+  const nba=await nbaStandings();
   let listHtml="";
   LG_ORDER.forEach(lgn=>{
     listHtml += `<div class="lgh">${LEAGUE_LOGOS[lgn]?`<img src="${LEAGUE_LOGOS[lgn]}" onerror="this.style.display='none'">`:""}<span>${lgn}</span></div><div class="grid">`;
     CLUBS.filter(c=>c.lg===lgn).forEach(c=>{
       const row=findRow(maps[lgn]||[], c.name);
-      const logo=crestOf(row)||"";
-      const pos=row&&row.played>0?row.pos+".":"—";
-      const pts=row&&row.played>0?row.pts:"—";
-      // marker
-      const icon=L.divIcon({className:'', html:`<img class="mk" src="${logo}" onerror="this.style.display='none'">`, iconSize:[34,34], iconAnchor:[17,17]});
-      L.marker([c.lat,c.lon],{icon}).addTo(map).bindPopup(pop(c,row)).bindTooltip(`${c.name} · ${c.player}`);
-      bounds.push([c.lat,c.lon]);
-      // card
+      const logo=crestOf(c,row);
+      const pos = c.na ? "N/A" : (row&&row.played>0?row.pos+".":"N/A");
+      const pts = c.na ? "N/A" : (row&&row.played>0?row.pts:"N/A");
+      cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(footPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
       listHtml += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player} · ${c.city}</div><div class="st">💰 <b>${c.tm}</b> &nbsp;·&nbsp; 📊 <b>${pos}</b> &nbsp;·&nbsp; ⭐ <b>${pts}</b> bod</div></div></div>`;
     });
     listHtml += `</div>`;
   });
   document.getElementById("leaguelists").innerHTML=listHtml;
-  if(bounds.length) map.fitBounds(bounds,{padding:[40,40]});
-  // NBA
-  const nba=await nbaStandings();
   let nh="";
   NBA_CLUBS.forEach(c=>{
     const row=findRow(nba,c.name);
     const logo=(row&&row.logo)||"";
-    const rec=row?`${row.w}-${row.l}`:"—";
-    nh += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
+    const rec=row?`${row.w}-${row.l}`:"N/A";
+    cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(nbaPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
+    nh += `<div class="cc">${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.player} · ${c.city}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
   });
   document.getElementById("nbalist").innerHTML=nh;
+  try{ map.fitBounds(cluster.getBounds(),{padding:[35,35]}); }catch(e){}
 }
 build();
 </script>
