@@ -42,8 +42,7 @@
   .pop .ph .pl{color:var(--gold); font-weight:700; font-size:.78rem;}
   .pop .ps{color:var(--muted); font-size:.78rem; line-height:1.5;}
   .pop .ps b{color:var(--text);}
-  .marker-cluster{background:rgba(255,209,102,.28)!important;}
-  .marker-cluster div{background:var(--gold)!important; color:#08111f!important; font-weight:800!important;}
+  .clbadge{width:34px; height:34px; border-radius:50%; background:#fff; border:2px solid var(--gold); color:#08111f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.5);}
   .foot{margin-top:30px; color:var(--muted); font-size:.72rem; line-height:1.5;}
 </style>
 </head>
@@ -54,7 +53,6 @@
     <div><h1>Odabrani klubovi</h1></div>
   </div>
   <div id="map"></div>
-  <div class="maphint">Klikni na grb za detalje. Povuci/zoomiraj kartu. Neki gradovi (npr. London) imaju više klubova — zoomiraj za razdvajanje.</div>
 
   <div id="leaguelists"></div>
 
@@ -151,7 +149,9 @@ fetch("https://cdn.jsdelivr.net/gh/nvkelso/natural-earth-vector@master/geojson/n
   L.geoJSON({type:"FeatureCollection",features:feats},{interactive:false, style:{color:"#5aa8ff", weight:1, opacity:0.45, fillColor:"#2f6fed", fillOpacity:0.17}}).addTo(map);
 }).catch(()=>{});
 
-const cluster = L.markerClusterGroup({maxClusterRadius:34, showCoverageOnHover:false, spiderfyOnMaxZoom:true, spiderfyDistanceMultiplier:1.7});
+const cluster = L.markerClusterGroup({maxClusterRadius:34, showCoverageOnHover:false, spiderfyOnMaxZoom:true, spiderfyDistanceMultiplier:1.7,
+  iconCreateFunction:function(c){ return L.divIcon({html:'<div class="clbadge">'+c.getChildCount()+'</div>', className:'', iconSize:[34,34], iconAnchor:[17,17]}); }
+});
 map.addLayer(cluster);
 
 function crestOf(c,row){ return (row&&row.logo) || (c&&c.logo) || ""; }
