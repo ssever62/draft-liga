@@ -44,6 +44,12 @@
   .pop .ph .pl{color:var(--gold); font-weight:700; font-size:.78rem;}
   .pop .ps{color:var(--muted); font-size:.78rem; line-height:1.5;}
   .pop .ps b{color:var(--text);}
+  .pfilter{display:flex; flex-wrap:wrap; gap:8px; margin:14px 0 22px;}
+  .pfilter .pflabel{width:100%; font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); font-weight:800; margin-bottom:2px;}
+  .pf{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:9px; padding:8px 15px; cursor:pointer; font-weight:700; font-size:.85rem;}
+  .pf:hover{border-color:var(--accent);}
+  .pf.active{background:var(--accent); color:#08111f; border-color:var(--accent);}
+  .mk.sel{border-color:var(--accent);}
   .clbadge{width:34px; height:34px; border-radius:50%; background:#fff; border:2px solid var(--gold); color:#08111f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(0,0,0,.5);}
   .foot{margin-top:30px; color:var(--muted); font-size:.72rem; line-height:1.5;}
 </style>
@@ -55,10 +61,11 @@
     <div><h1>Odabrani klubovi</h1></div>
   </div>
   <div id="map"></div>
+  <div class="pfilter" id="pfilter"></div>
 
   <div id="leaguelists"></div>
 
-  <div class="lgh"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png" onerror="this.style.display='none'"><span>NBA</span></div>
+  <div class="lgh" id="nbahdr"><img src="https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png" onerror="this.style.display='none'"><span>NBA</span></div>
   <div class="grid" id="nbalist"></div>
 
   <div class="foot">
@@ -157,7 +164,7 @@ const cluster = L.markerClusterGroup({maxClusterRadius:34, showCoverageOnHover:f
 map.addLayer(cluster);
 
 function crestOf(c,row){ return (row&&row.logo) || (c&&c.logo) || ""; }
-function mkIcon(logo){ return L.divIcon({className:'', html:`<img class="mk" src="${logo}" onerror="this.style.display='none'">`, iconSize:[32,32], iconAnchor:[16,16]}); }
+function mkIcon(logo, sel){ return L.divIcon({className:'', html:`<img class="mk${sel?' sel':''}" src="${logo}" onerror="this.style.display='none'">`, iconSize:[32,32], iconAnchor:[16,16]}); }
 function footPop(c,row){
   const logo=crestOf(c,row);
   const pos = c.na ? "N/A" : (row&&row.played>0 ? row.pos+"." : "N/A");
@@ -172,34 +179,53 @@ function nbaPop(c,row){
     + `<div class="ps">📍 ${c.city} 🇺🇸<br>💰 Vrijednost: <b>N/A</b><br>⭐ Prošla sezona: <b>${rec}</b></div></div>`;
 }
 
+const PLAYERS_LIST = ["Hrvoje","Ogi","Jura","Kavur","Majić","Šimo"];
+let FOOT=[], NBAE=[], CURFILTER=null;
+
 async function build(){
   const maps={};
   await Promise.all(LG_ORDER.map(async lgn=>{ const code=CLUBS.find(c=>c.lg===lgn).code; maps[lgn]=await leagueStandings(code); }));
   const nba=await nbaStandings();
+  FOOT = CLUBS.map(c=>({c, row:findRow(maps[c.lg]||[], c.name)}));
+  NBAE = NBA_CLUBS.map(c=>({c, row:findRow(nba,c.name)}));
+  const pf=document.getElementById("pfilter");
+  pf.innerHTML = `<span class="pflabel">Filtriraj po igraču</span><button class="pf active" data-p="">Svi klubovi</button>` + PLAYERS_LIST.map(p=>`<button class="pf" data-p="${p}">${p}</button>`).join("");
+  pf.querySelectorAll(".pf").forEach(b=>b.onclick=()=>{ CURFILTER=b.dataset.p||null; pf.querySelectorAll(".pf").forEach(x=>x.classList.toggle("active", x===b)); applyFilter(); });
+  applyFilter();
+}
+
+function applyFilter(){
+  const sel=CURFILTER;
+  cluster.clearLayers();
+  const bounds=[];
   let listHtml="";
   LG_ORDER.forEach(lgn=>{
+    const items = FOOT.filter(e=>e.c.lg===lgn && (!sel || e.c.player===sel));
+    if(!items.length) return;
     listHtml += `<div class="lgh">${LEAGUE_LOGOS[lgn]?`<img src="${LEAGUE_LOGOS[lgn]}" onerror="this.style.display='none'">`:""}<span>${lgn}</span></div><div class="grid">`;
-    CLUBS.filter(c=>c.lg===lgn).forEach(c=>{
-      const row=findRow(maps[lgn]||[], c.name);
+    items.forEach(({c,row})=>{
       const logo=crestOf(c,row);
       const pos = c.na ? "N/A" : (row&&row.played>0?row.pos+".":"N/A");
       const pts = c.na ? "N/A" : (row&&row.played>0?row.pts:"N/A");
-      cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(footPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
+      cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo, !!sel)}).bindPopup(footPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
+      bounds.push([c.lat,c.lon]);
       listHtml += `<div class="cc"><span class="ccplayer">${c.player}</span>${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.city}</div><div class="st">💰 <b>${c.tm}</b> &nbsp;·&nbsp; 📊 <b>${pos}</b> &nbsp;·&nbsp; ⭐ <b>${pts}</b> bod</div></div></div>`;
     });
     listHtml += `</div>`;
   });
   document.getElementById("leaguelists").innerHTML=listHtml;
+  const nitems = NBAE.filter(e=>!sel || e.c.player===sel);
+  const nh_el=document.getElementById("nbahdr"); if(nh_el) nh_el.style.display = nitems.length ? "" : "none";
   let nh="";
-  NBA_CLUBS.forEach(c=>{
-    const row=findRow(nba,c.name);
+  nitems.forEach(({c,row})=>{
     const logo=(row&&row.logo)||"";
     const rec=row?`${row.w}-${row.l}`:"N/A";
-    cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo)}).bindPopup(nbaPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
+    cluster.addLayer(L.marker([c.lat,c.lon],{icon:mkIcon(logo, !!sel)}).bindPopup(nbaPop(c,row)).bindTooltip(`${c.name} · ${c.player}`));
+    bounds.push([c.lat,c.lon]);
     nh += `<div class="cc"><span class="ccplayer">${c.player}</span>${logo?`<img class="crest" src="${logo}" onerror="this.style.display='none'">`:""}<div><div class="nm">${c.name}</div><div class="pl">${c.city}</div><div class="st">🇺🇸 SAD &nbsp;·&nbsp; ⭐ Prošla sezona: <b>${rec}</b></div></div></div>`;
   });
   document.getElementById("nbalist").innerHTML=nh;
-  try{ map.fitBounds(cluster.getBounds(),{padding:[35,35]}); }catch(e){}
+  if(bounds.length){ try{ map.fitBounds(bounds,{padding:[45,45], maxZoom:6}); }catch(e){} }
 }
 build();
 </script>
