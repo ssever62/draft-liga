@@ -250,6 +250,15 @@ const LEAGUE_LOGOS = {
   "NBA":            "https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png",
 };
 
+const NBA_LOGOS = {
+  "Miami Heat":"https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
+  "Washington Wizards":"https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
+  "Indiana Pacers":"https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+  "Dallas Mavericks":"https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+  "Golden State Warriors":"https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+  "LA Clippers":"https://a.espncdn.com/i/teamlogos/nba/500/lac.png"
+};
+
 const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
 
 function findTeam(rows, wanted){
@@ -367,7 +376,7 @@ function render(results){
       const r = s.row;
       cards += `<tr class="${i===_lead?'lgleader':''}"><td>${i+1}</td><td>${p}${i===_lead?' <span class="smalltrophy">🥇</span>':''}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
-      else if(!r) cards += `<td>${club}</td>`;
+      else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td>${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${club}</td>`; }
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
       cards += `<td>${r ? r.w : 0}</td>`;
       if(lg.type !== "nba") cards += `<td>${r ? r.d : 0}</td>`;
