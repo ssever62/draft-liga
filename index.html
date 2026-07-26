@@ -357,7 +357,7 @@ function render(results){
   results.forEach(({lg, rows, err}) => {
     cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span class="countdown" data-lg="${lg.name}" title="Odbrojavanje do prve utakmice">—</span><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
-    cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
+    cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th><th>R</th><th>I</th><th>Bod</th></tr>`;
     const _entries = Object.entries(lg.picks);
     let _max = -1, _lead = -1;
     _entries.forEach(([pp], i) => { const pt = scores[pp][lg.name].pts; if(pt > _max){ _max = pt; _lead = i; } });
@@ -369,7 +369,7 @@ function render(results){
       else if(!r) cards += `<td>${club}</td>`;
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
       cards += `<td>${r ? r.w : 0}</td>`;
-      if(lg.type !== "nba") cards += `<td>${r ? r.d : 0}</td>`;
+      cards += `<td>${(r && lg.type!=="nba") ? r.d : 0}</td>`;
       cards += `<td>${r ? r.l : 0}</td><td class="pts">${s.pts}</td></tr>`;
     });
     cards += "</table></div>";
