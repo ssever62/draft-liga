@@ -26,11 +26,11 @@
   .lgh{display:flex; align-items:center; gap:9px; margin:22px 0 8px;}
   .lgh img{height:22px;}
   .lgh span{font-weight:800; font-size:1.05rem;}
-  .mtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
-  .mtable td{padding:9px 12px; font-size:.86rem; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .mtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden; table-layout:fixed;}
+  .mtable td{padding:0 12px; height:40px; vertical-align:middle; font-size:.86rem; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .mtable tr:last-child td{border-bottom:none;}
-  .mtable td.pl{color:var(--gold); font-weight:800; width:70px;}
-  .mtable td.club{font-weight:700;}
+  .mtable td.pl{color:var(--gold); font-weight:800; width:78px;}
+  .mtable td.club{font-weight:700; width:236px;}
   .mtable td.vs{color:var(--text);}
   .mtable td.sc{text-align:right; color:var(--muted); width:150px;}
   .mtable td.sc.live{color:var(--green); font-weight:800;}
