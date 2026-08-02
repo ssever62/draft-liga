@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Aktualno kolo — Klupica Draft Liga</title>
+<style>
+  :root{ --bg:#0f1420; --card:#1a2233; --card2:#141b2b; --border:#2a3550; --text:#e8ecf5; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166; --green:#3ddc84; --red:#ff6b6b; font-size:15px;}
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:24px 16px; max-width:1000px; margin:0 auto;}
+  .back{display:inline-block; margin-bottom:16px; color:var(--accent); text-decoration:none; font-weight:700; font-size:.9rem;}
+  .back:hover{text-decoration:underline;}
+  .top{display:flex; align-items:center; gap:14px; margin-bottom:18px;}
+  .top img{height:58px;}
+  h1{font-size:1.5rem;}
+  .modebar{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;}
+  .modebtn{background:var(--card); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:11px 20px; cursor:pointer; font-weight:800; font-size:.95rem;}
+  .modebtn:hover{border-color:var(--accent);}
+  .modebtn.active{background:var(--accent); color:#08111f; border-color:var(--accent);}
+  .chips{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;}
+  .chip{background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:9px; padding:8px 15px; cursor:pointer; font-weight:700; font-size:.85rem; min-width:92px; text-align:center;}
+  .chip:hover{border-color:var(--accent);}
+  .chip.active{background:var(--accent); color:#08111f; border-color:var(--accent);}
+  .lgh{display:flex; align-items:center; gap:9px; margin:22px 0 8px;}
+  .lgh img{height:22px;}
+  .lgh span{font-weight:800; font-size:1.05rem;}
+  .mtable{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:12px; overflow:hidden;}
+  .mtable td{padding:9px 12px; font-size:.86rem; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .mtable tr:last-child td{border-bottom:none;}
+  .mtable td.pl{color:var(--gold); font-weight:800; width:70px;}
+  .mtable td.club{font-weight:700;}
+  .mtable td.vs{color:var(--text);}
+  .mtable td.sc{text-align:right; color:var(--muted); width:150px;}
+  .mtable td.sc.live{color:var(--green); font-weight:800;}
+  .mtable td.sc.res{color:var(--text); font-weight:800;}
+  .mk{width:20px; height:20px; object-fit:contain; vertical-align:middle; margin-right:7px;}
+  .muted{color:var(--muted);}
+  .foot{margin-top:28px; color:var(--muted); font-size:.72rem; line-height:1.5;}
+</style>
+</head>
+<body>
+  <a class="back" href="./">← Natrag na tablicu</a>
+  <div class="top"><img src="c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png" alt="Klupica"><h1>Aktualno kolo</h1></div>
+  <div class="modebar">
+    <button class="modebtn" data-mode="players">👤 Po igračima</button>
+    <button class="modebtn" data-mode="leagues">🏆 Po ligama</button>
+  </div>
+  <div class="chips" id="chips"></div>
+  <div id="content" class="muted">Učitavanje utakmica…</div>
+  <div class="foot">Prikazuje se aktualno (nadolazeće/tekuće) kolo za odabrane klubove. Kad utakmica počne/završi, prikazuje se rezultat. Izvor: ESPN (javni API).</div>
+
+<script>
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+const LEAGUE_LOGOS = {
+  "Premier League":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/23.png",
+  "La Liga":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/15.png",
+  "Serie A":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/12.png",
+  "Bundesliga":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/10.png",
+  "Ligue 1":"https://a.espncdn.com/i/leaguelogos/soccer/500-dark/9.png",
+  "NBA":"https://a.espncdn.com/i/teamlogos/leagues/500-dark/nba.png"
+};
+const NBA_LOGOS = {
+  "Miami Heat":"https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
+  "Washington Wizards":"https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
+  "Indiana Pacers":"https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+  "Dallas Mavericks":"https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+  "Golden State Warriors":"https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+  "LA Clippers":"https://a.espncdn.com/i/teamlogos/nba/500/lac.png"
+};
+const PLAYERS = ["Hrvoje","Ogi","Jura","Kavur","Majić","Šimo"];
+const LEAGUES = [
+  {name:"Premier League", code:"eng.1", type:"football", clubs:[{p:"Hrvoje",c:"Tottenham Hotspur"},{p:"Ogi",c:"Chelsea"},{p:"Šimo",c:"Newcastle United"},{p:"Jura",c:"Crystal Palace"},{p:"Majić",c:"Leeds United"},{p:"Kavur",c:"Fulham"}]},
+  {name:"La Liga", code:"esp.1", type:"football", clubs:[{p:"Ogi",c:"Real Sociedad"},{p:"Jura",c:"Athletic Club"},{p:"Hrvoje",c:"Sevilla"},{p:"Kavur",c:"Deportivo La Coruña"},{p:"Šimo",c:"Espanyol"},{p:"Majić",c:"Osasuna"}]},
+  {name:"Serie A", code:"ita.1", type:"football", clubs:[{p:"Jura",c:"Fiorentina"},{p:"Kavur",c:"Torino"},{p:"Ogi",c:"Sassuolo"},{p:"Majić",c:"Udinese"},{p:"Hrvoje",c:"Parma"},{p:"Šimo",c:"Genoa"}]},
+  {name:"Bundesliga", code:"ger.1", type:"football", clubs:[{p:"Kavur",c:"Eintracht Frankfurt"},{p:"Majić",c:"Mainz"},{p:"Jura",c:"FC Augsburg"},{p:"Šimo",c:"FC Cologne"},{p:"Ogi",c:"Borussia Mönchengladbach"},{p:"Hrvoje",c:"1. FC Union Berlin"}]},
+  {name:"Ligue 1", code:"fra.1", type:"football", clubs:[{p:"Majić",c:"Nice"},{p:"Šimo",c:"Strasbourg"},{p:"Kavur",c:"Paris FC"},{p:"Hrvoje",c:"Toulouse"},{p:"Jura",c:"Brest"},{p:"Ogi",c:"Angers"}]},
+  {name:"NBA", type:"nba", clubs:[{p:"Šimo",c:"Miami Heat"},{p:"Hrvoje",c:"Washington Wizards"},{p:"Majić",c:"Indiana Pacers"},{p:"Ogi",c:"Dallas Mavericks"},{p:"Kavur",c:"Golden State Warriors"},{p:"Jura",c:"LA Clippers"}]}
+];
+
+let ROWS={}, NBA_ROWS=[], SCHED={}, CUR={};
+let MODE=null, PICK=null;
+
+function findRow(rows, name){ const w=norm(name); return rows.find(r=>norm(r.team)===w) || rows.find(r=>norm(r.team).includes(w)||w.includes(norm(r.team))) || null; }
+async function leagueRows(code){
+  const rows=[];
+  try{ const d=await fetch(`https://site.api.espn.com/apis/v2/sports/soccer/${code}/standings`).then(r=>r.json());
+    (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ rows.push({team:o.team.displayName,id:o.team.id,logo:(o.team.logos&&o.team.logos[0]&&o.team.logos[0].href)||""}); return;} for(const k in o) walk(o[k]); })(d);
+  }catch(e){}
+  return rows;
+}
+async function nbaRows(){
+  const rows=[];
+  try{ const d=await fetch("https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2026").then(r=>r.json());
+    (function walk(o){ if(!o||typeof o!=="object")return; if(o.team&&o.stats){ rows.push({team:o.team.displayName,id:o.team.id,logo:(o.team.logos&&o.team.logos[0]&&o.team.logos[0].href)||""}); return;} for(const k in o) walk(o[k]); })(d);
+  }catch(e){}
+  return rows;
+}
+function parseEvent(e,id){
+  const comp=e.competitions&&e.competitions[0];
+  const cs=comp?(comp.competitors||[]):[];
+  const me=cs.find(c=>String(c.team&&c.team.id)===String(id));
+  const opp=cs.find(c=>c!==me);
+  const state=comp&&comp.status&&comp.status.type&&comp.status.type.state;
+  return { date:e.date, home: me? me.homeAway==="home":true,
+    opp:(opp&&opp.team)?(opp.team.shortDisplayName||opp.team.displayName):"?",
+    myScore:(me&&me.score)?(me.score.displayValue??me.score):"",
+    oppScore:(opp&&opp.score)?(opp.score.displayValue??opp.score):"", state };
+}
+async function fetchSchedule(lg,id){
+  const key=lg.name+"/"+id; if(SCHED[key]) return SCHED[key];
+  const base = lg.type==="nba"
+    ? `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}/schedule`
+    : `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.code}/teams/${id}/schedule`;
+  const map=new Map();
+  for(const url of [base, base+"?fixture=true"]){
+    try{ const d=await fetch(url).then(r=>r.json()); (d.events||[]).forEach(e=>{ if(!map.has(e.id)) map.set(e.id, parseEvent(e,id)); }); }catch(e){}
+  }
+  const ev=[...map.values()].sort((a,b)=>new Date(a.date)-new Date(b.date));
+  SCHED[key]=ev; return ev;
+}
+function currentMatch(ev){
+  const now=Date.now();
+  return ev.find(m=>m.state==="in") || ev.find(m=>m.state!=="post" && new Date(m.date).getTime()>=now-3600000) || ev.find(m=>m.state!=="post") || null;
+}
+function fmtDate(iso){ const d=new Date(iso); if(isNaN(d)) return ""; return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}. ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function scoreCell(m){
+  if(!m) return {cls:"", txt:"raspored nije objavljen"};
+  if(m.state==="post"){ const a=m.home?m.myScore:m.oppScore, b=m.home?m.oppScore:m.myScore; return {cls:"res", txt:`${a} : ${b}`}; }
+  if(m.state==="in") return {cls:"live", txt:"UŽIVO"};
+  return {cls:"", txt:fmtDate(m.date)};
+}
+
+async function build(){
+  await Promise.all(LEAGUES.filter(l=>l.type==="football").map(async l=>{ ROWS[l.name]=await leagueRows(l.code); }));
+  NBA_ROWS=await nbaRows();
+  await Promise.all(LEAGUES.flatMap(lg=>lg.clubs.map(async cl=>{
+    const rows = lg.type==="nba"? NBA_ROWS : (ROWS[lg.name]||[]);
+    const r=findRow(rows, cl.c);
+    let logo=(r&&r.logo) || (lg.type==="nba"? (NBA_LOGOS[cl.c]||"") : "") || "";
+    let m=null;
+    if(r&&r.id){ try{ const ev=await fetchSchedule(lg, r.id); m=currentMatch(ev); }catch(e){} }
+    CUR[lg.name+"|"+cl.c]={p:cl.p, c:cl.c, logo, m};
+  })));
+  render();
+}
+
+function setMode(mode){
+  MODE = (MODE===mode)? null : mode;
+  PICK = null;
+  document.querySelectorAll(".modebtn").forEach(b=>b.classList.toggle("active", b.dataset.mode===MODE));
+  renderChips(); render();
+}
+function renderChips(){
+  const el=document.getElementById("chips");
+  if(MODE==="players"){ el.innerHTML = PLAYERS.map(p=>`<button class="chip ${PICK===p?'active':''}" data-v="${p}">${p}</button>`).join(""); }
+  else if(MODE==="leagues"){ el.innerHTML = LEAGUES.map(l=>`<button class="chip ${PICK===l.name?'active':''}" data-v="${l.name}">${l.name}</button>`).join(""); }
+  else { el.innerHTML=""; }
+  el.querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ PICK = (PICK===b.dataset.v)? null : b.dataset.v; renderChips(); render(); });
+}
+function render(){
+  const filt = (lgName,p)=>{
+    if(MODE==="players" && PICK) return p===PICK;
+    if(MODE==="leagues" && PICK) return lgName===PICK;
+    return true;
+  };
+  let html="";
+  LEAGUES.forEach(lg=>{
+    const items=lg.clubs.filter(cl=>filt(lg.name, cl.p));
+    if(!items.length) return;
+    html += `<div class="lgh">${LEAGUE_LOGOS[lg.name]?`<img src="${LEAGUE_LOGOS[lg.name]}" onerror="this.style.display='none'">`:""}<span>${lg.name}</span></div><table class="mtable">`;
+    items.forEach(cl=>{
+      const x=CUR[lg.name+"|"+cl.c]||{p:cl.p,c:cl.c,logo:"",m:null};
+      const m=x.m;
+      const vs = m ? (m.home? `${x.c} – ${m.opp}` : `${m.opp} – ${x.c}`) : "—";
+      const sc=scoreCell(m);
+      html += `<tr><td class="pl">${x.p}</td><td class="club">${x.logo?`<img class="mk" src="${x.logo}" onerror="this.style.display='none'">`:""}${x.c}</td><td class="vs">${vs}</td><td class="sc ${sc.cls}">${sc.txt}</td></tr>`;
+    });
+    html += `</table>`;
+  });
+  document.getElementById("content").className="";
+  document.getElementById("content").innerHTML = html || `<div class="muted">Nema utakmica za prikaz.</div>`;
+}
+
+document.querySelectorAll(".modebtn").forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+build();
+</script>
+</body>
+</html>
