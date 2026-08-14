@@ -137,6 +137,26 @@
   .nexttable td:nth-child(4){width:54px;text-align:center;}
   .nexttable td:nth-child(5){width:130px;text-align:right;}
   .nexttable td{overflow:hidden;text-overflow:ellipsis;}
+  /* ===== Ovaj tjedan (live / rezultati / raspored) ===== */
+  .h2sub{font-size:.62em; font-weight:600; color:var(--muted); letter-spacing:.01em;}
+  .weekwrap{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:14px; margin:4px 0 26px;}
+  .wkblock{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 13px;}
+  .wkblock.live{grid-column:1/-1; border-color:rgba(255,107,107,.55); box-shadow:0 0 0 1px rgba(255,107,107,.22) inset;}
+  .wkhdr{display:flex; align-items:center; gap:8px; font-weight:800; font-size:.98rem; margin:2px 0 8px; color:var(--gold);}
+  .wkhdr img{width:22px; height:22px; object-fit:contain;}
+  .wkblock.live .wkhdr{color:#ff6b6b;}
+  .wkblock.live .wkhdr .dot{width:9px; height:9px; border-radius:50%; background:#ff6b6b; box-shadow:0 0 0 0 rgba(255,107,107,.6); animation:wkpulse 1.4s infinite;}
+  @keyframes wkpulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,.6)}70%{box-shadow:0 0 0 8px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}
+  .wktable{width:100%; table-layout:fixed; background:transparent;}
+  .wktable td{padding:0 8px; height:34px; vertical-align:middle; font-size:.85rem; border-bottom:1px solid var(--border); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wktable tr:last-child td{border-bottom:none;}
+  .wktable td.wkpl{width:104px; color:var(--muted);}
+  .wktable td.wkclub{width:auto;}
+  .wktable td.wksc{width:98px; text-align:right; font-variant-numeric:tabular-nums;}
+  .wktable td.wkclub .clublogo{width:18px; height:18px; object-fit:contain; vertical-align:middle; margin-right:6px;}
+  .wksc.wkres{font-weight:800; color:var(--text);}
+  .wksc.wklive{font-weight:900; color:#ff6b6b;}
+  .wksc.wkupc{color:var(--muted);}
   /* header + refresh */
   .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
   .titlewrap{min-width:0;}
@@ -167,7 +187,15 @@
   .derbyrow td{background:rgba(192,132,252,.12) !important;}
   .fcell.derbycell{outline:2px solid var(--derby); outline-offset:-2px;}
   .topcta{text-align:center; margin:4px 0 18px;}
-  .aktbtn{display:inline-block; background:var(--gold); color:#08111f; font-weight:900; font-size:1.05rem; letter-spacing:.04em; padding:13px 34px; border-radius:999px; text-decoration:none; box-shadow:0 3px 14px rgba(255,209,102,.3);}
+  .aktbtn{display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:1px; text-align:center; width:150px; height:66px; background:var(--gold); color:#08111f; font-weight:900; font-size:1.15rem; line-height:1.05; letter-spacing:.03em; border-radius:14px; text-decoration:none; box-shadow:0 3px 14px rgba(255,209,102,.3);}
+  .aktbtn span{font-size:.82rem; letter-spacing:.06em;}
+  /* Live utakmice: pregled lijevo + dva gumba desno (isti oblik i veličina) */
+  .liverow{display:flex; align-items:flex-start; gap:16px; margin:4px 0 18px;}
+  .liverow .weekwrap{flex:1; min-width:0; margin:0;}
+  .sidebtns{display:flex; flex-direction:column; gap:12px; flex:0 0 190px; width:190px;}
+  .sidebtn{width:100%; height:78px; min-height:78px; border-radius:14px; padding:8px 12px; font-size:1rem; text-align:center; box-sizing:border-box;}
+  a.aktbtn.sidebtn{white-space:normal; line-height:1.15;}
+  @media(max-width:820px){ .liverow{flex-direction:column;} .sidebtns{flex-direction:row; width:100%; flex:1 1 auto;} }
   .aktbtn:hover{filter:brightness(1.07);}
 </style>
 </head>
@@ -186,10 +214,18 @@
       </svg>
       <span>Osvježi</span>
     </button>
-    <a class="clubsbtn" href="klubovi.html"><span class="clubsbg" id="clubsbg"></span><span class="clubslabel">🗺️ Odabrani klubovi</span></a>
     </div>
   </div>
-  <div class="topcta"><a class="aktbtn" href="aktualno.html">📅 AKTUALNO KOLO</a></div>
+
+  <h2 id="tjedan">🔴 Live utakmice <span class="h2sub">— uživo · rezultati (−7 dana) · raspored (+7 dana)</span></h2>
+  <div class="liverow">
+    <div id="weekbody" class="weekwrap"><div class="muted" style="padding:8px 2px">Učitavanje utakmica…</div></div>
+    <div class="sidebtns">
+      <a class="clubsbtn sidebtn" href="klubovi.html"><span class="clubsbg" id="clubsbg"></span><span class="clubslabel">🗺️ Odabrani klubovi</span></a>
+      <a class="aktbtn sidebtn" href="aktualno.html" title="Sve utakmice sljedećeg kola">📅 AKTUALNO KOLO</a>
+    </div>
+  </div>
+
   <div class="bar">
     <button class="navbtn" onclick="showView('next')">⏭️ Sljedeće kolo po ligama</button>
     <button class="navbtn" onclick="showView('nextPlayers')">👤 Sljedeće kolo po igračima</button>
@@ -197,6 +233,7 @@
     <span class="status" id="status">Učitavanje…</span>
   </div>
 
+  <h2>🏆 Ukupna tablica</h2>
   <div class="wrap"><table id="matrix"></table></div>
 
   <h2>Detalji po ligama</h2>
@@ -391,7 +428,92 @@ function render(results){
   document.getElementById("cards").innerHTML = cards;
   initViewer(results);
   startCountdowns();
+  buildWeek();
 }
+
+// ===== Ovaj tjedan: uživo + rezultati (-7d) + raspored (+7d) po ligama =====
+function weekLogo(lg, club){
+  if(lg.type === "nba") return NBA_LOGOS[club] || "";
+  const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
+  return (r && r.logo) || (r && r.id ? `https://a.espncdn.com/i/teamlogos/soccer/500/${r.id}.png` : "");
+}
+function weekRow(x){
+  const { lg, pl, myName, m } = x;
+  const logo = weekLogo(lg, myName);
+  const derby = isDerby(lg, m.oppId);
+  const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
+  const who = derby ? `${pl} vs ${derby}` : pl;
+  let res, cls;
+  if(m.state === "post"){ res = `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}`; cls = "wkres"; }
+  else if(m.state === "in"){ res = "🔴 UŽIVO"; cls = "wklive"; }
+  else { res = fmtDate(m.date, true); cls = "wkupc"; }
+  const img = logo ? `<img class="clublogo" src="${logo}" onerror="this.style.visibility='hidden'">` : "";
+  return `<tr><td class="wkpl">${who}</td><td class="wkclub">${img}${vs}</td><td class="wksc ${cls}">${res}</td></tr>`;
+}
+function ymd(ms){ const d = new Date(ms); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
+async function leagueEventsRange(lg, from, to){
+  const url = lg.type === "nba"
+    ? `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${from}-${to}`
+    : `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/scoreboard?dates=${from}-${to}`;
+  try{ const d = await fetch(url).then(r => r.json()); return d.events || []; }catch(e){ return []; }
+}
+async function buildWeek(){
+  const el = document.getElementById("weekbody");
+  if(!el) return;
+  const now = Date.now(), A = now - 7*86400000, B = now + 7*86400000;
+  const fromY = ymd(A), toY = ymd(B);
+  const perLeague = await Promise.all(LEAGUES.map(async lg => {
+    await ensureDerbyIds(lg);
+    const own = {};   // teamId -> {pl, club}
+    await Promise.all(Object.entries(lg.picks).map(async ([pl, club]) => {
+      const id = await clubId(lg, club);
+      if(id) own[String(id)] = { pl, club };
+    }));
+    const seen = new Map();
+    const consider = (m, myId) => {
+      const o = own[String(myId)];
+      if(!o || !m || seen.has(m.id)) return;
+      const t = new Date(m.date).getTime();
+      if(isNaN(t) || t < A || t > B) return;
+      seen.set(m.id, { lg, pl: o.pl, myName: o.club, m });
+    };
+    // Izvor A: raspored lige za prozor od ±7 dana (pouzdano za datume)
+    (await leagueEventsRange(lg, fromY, toY)).forEach(e => {
+      const comp = e.competitions && e.competitions[0];
+      const cs = comp ? (comp.competitors || []) : [];
+      const mine = cs.find(c => c.team && own[String(c.team.id)]);
+      if(mine) consider(parseEvent(e, mine.team.id, lg), mine.team.id);
+    });
+    // Izvor B: raspored svakog kluba (unija — hvata što scoreboard propusti)
+    await Promise.all(Object.keys(own).map(async id => {
+      let ev = [];
+      try{ ev = await fetchSchedule(lg, id); }catch(e){}
+      ev.forEach(m => consider(m, id));
+    }));
+    const arr = [...seen.values()].sort((a,b) => new Date(a.m.date) - new Date(b.m.date));
+    return { lg, arr };
+  }));
+  const live = [];
+  perLeague.forEach(({ arr }) => arr.forEach(x => { if(x.m.state === "in") live.push(x); }));
+  let html = "";
+  if(live.length){
+    html += `<div class="wkblock live"><div class="wkhdr"><span class="dot"></span>Uživo sada</div><table class="mtable wktable">`;
+    live.forEach(x => html += weekRow(x));
+    html += `</table></div>`;
+  }
+  let any = false;
+  perLeague.forEach(({ lg, arr }) => {
+    if(!arr.length) return;
+    any = true;
+    const lo = LEAGUE_LOGOS[lg.name] ? `<img src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : "";
+    html += `<div class="wkblock"><div class="wkhdr">${lo}<span>${lg.name}</span></div><table class="mtable wktable">`;
+    arr.forEach(x => html += weekRow(x));
+    html += `</table></div>`;
+  });
+  if(!live.length && !any) html += `<div class="muted" style="padding:8px 2px">Nema utakmica u prozoru od ±7 dana.</div>`;
+  el.innerHTML = html;
+}
+
 
 let LEAGUE_ROWS = {};
 const SCHED_CACHE = {};
