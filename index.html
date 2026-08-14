@@ -156,6 +156,7 @@
   .wktable td.wkclub .clublogo{width:18px; height:18px; object-fit:contain; vertical-align:middle; margin-right:6px;}
   .wksc.wkres{font-weight:800; color:var(--text);}
   .wksc.wklive{font-weight:900; color:#ff6b6b;}
+  .wkclock{font-weight:700; font-size:.72rem; color:var(--muted); margin-left:4px;}
   .wksc.wkupc{color:var(--muted);}
   /* header + refresh */
   .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
@@ -432,6 +433,7 @@ function render(results){
 }
 
 // ===== Ovaj tjedan: uživo + rezultati (-7d) + raspored (+7d) po ligama =====
+let WEEK_TIMER = null;
 function weekLogo(lg, club){
   if(lg.type === "nba") return NBA_LOGOS[club] || "";
   const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
@@ -445,7 +447,12 @@ function weekRow(x){
   const who = derby ? `${pl} vs ${derby}` : pl;
   let res, cls;
   if(m.state === "post"){ res = `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}`; cls = "wkres"; }
-  else if(m.state === "in"){ res = "🔴 UŽIVO"; cls = "wklive"; }
+  else if(m.state === "in"){
+    const sc = `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}`;
+    const ok = /\d/.test(String(m.myScore)) && /\d/.test(String(m.oppScore));
+    res = (ok ? sc : "UŽIVO") + (m.liveTxt ? ` <span class="wkclock">${m.liveTxt}</span>` : "");
+    cls = "wklive";
+  }
   else { res = fmtDate(m.date, true); cls = "wkupc"; }
   const img = logo ? `<img class="clublogo" src="${logo}" onerror="this.style.visibility='hidden'">` : "";
   return `<tr><td class="wkpl">${who}</td><td class="wkclub">${img}${vs}</td><td class="wksc ${cls}">${res}</td></tr>`;
@@ -455,7 +462,7 @@ async function leagueEventsRange(lg, from, to){
   const url = lg.type === "nba"
     ? `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=${from}-${to}`
     : `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/scoreboard?dates=${from}-${to}`;
-  try{ const d = await fetch(url).then(r => r.json()); return d.events || []; }catch(e){ return []; }
+  try{ const d = await fetch(url, {cache:"no-store"}).then(r => r.json()); return d.events || []; }catch(e){ return []; }
 }
 async function buildWeek(){
   const el = document.getElementById("weekbody");
@@ -512,6 +519,13 @@ async function buildWeek(){
   });
   if(!live.length && !any) html += `<div class="muted" style="padding:8px 2px">Nema utakmica u prozoru od ±7 dana.</div>`;
   el.innerHTML = html;
+  // Brzo osvježavanje dok je nešto uživo (ili neposredno prije početka)
+  const soon = perLeague.some(({arr}) => arr.some(x => {
+    const t = new Date(x.m.date).getTime();
+    return x.m.state !== "post" && t - now < 20*60000 && t - now > -4*3600000;
+  }));
+  if(WEEK_TIMER){ clearTimeout(WEEK_TIMER); WEEK_TIMER = null; }
+  if(live.length || soon) WEEK_TIMER = setTimeout(buildWeek, live.length ? 45000 : 60000);
 }
 
 
@@ -634,9 +648,20 @@ function parseEvent(e, id, lg){
     const side = (me ? me.homeAway === "home" : true) ? od.homeTeamOdds : od.awayTeamOdds;
     if(side && typeof side.moneyLine === "number") myML = side.moneyLine;
   }
+  const stt = comp && comp.status;
+  const clock = stt ? (stt.displayClock || "") : "";
+  const period = stt ? stt.period : null;
+  const shortDet = (stt && stt.type) ? (stt.type.shortDetail || stt.type.detail || "") : "";
+  let liveTxt = "";
+  if(state === "in"){
+    if(lg.type === "nba") liveTxt = (period ? (period > 4 ? "OT" : "Q"+period) : "") + (clock ? " " + clock : "");
+    else liveTxt = clock || shortDet;
+    liveTxt = liveTxt.trim();
+  }
   return {
     id: e.id,
     date: e.date,
+    liveTxt,
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
     oppAbbr: (opp && opp.team) ? (opp.team.abbreviation || opp.team.shortDisplayName || "?") : "?",
