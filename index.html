@@ -157,6 +157,9 @@
   .wksc.wkres{font-weight:800; color:var(--text);}
   .wksc.wklive{font-weight:900; color:#ff6b6b;}
   .wkclock{font-weight:700; font-size:.72rem; color:var(--muted); margin-left:4px;}
+  .ptslive{color:#ff6b6b !important; font-weight:800;}
+  .ptslive::after{content:"•"; color:#ff6b6b; margin-left:3px; animation:wkpulse2 1.4s infinite;}
+  @keyframes wkpulse2{0%,100%{opacity:1}50%{opacity:.25}}
   .wksc.wkupc{color:var(--muted);}
   /* header + refresh */
   .topbar{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px;}
@@ -374,14 +377,19 @@ async function loadAll(){
   }
 }
 
-function render(results){
+let LAST_RESULTS = null;
+let LIVE_DELTA = {};   // "Liga|Klub" -> {pts,w,d,l} privremeno iz utakmice u tijeku
+
+function render(results, skipWeek){
+  LAST_RESULTS = results;
   // matrix: players × leagues + TOTAL
   const scores = {};   // scores[player][leagueName] = pts
   PLAYERS.forEach(p => scores[p] = {});
   results.forEach(({lg, rows}) => {
     PLAYERS.forEach(p => {
       const row = findTeam(rows, lg.picks[p]);
-      scores[p][lg.name] = { pts: points(lg, row), row, pick: lg.picks[p] };
+      const dl = LIVE_DELTA[lg.name + "|" + lg.picks[p]] || null;
+      scores[p][lg.name] = { pts: points(lg, row) + (dl ? dl.pts : 0), row, pick: lg.picks[p], live: dl };
     });
   });
   const totals = PLAYERS.map(p => ({
@@ -398,7 +406,7 @@ function render(results){
     if(i===nR-1) cls.push("redrow");
     if(i===nR-2) cls.push("redline");
     html += `<tr class="${cls.join(' ')}"><td class="rankcell">${i+1}</td><td class="pname">${t.p}</td>`;
-    LEAGUES.forEach(lg => { html += `<td>${scores[t.p][lg.name].pts}</td>`; });
+    LEAGUES.forEach(lg => { const c = scores[t.p][lg.name]; html += `<td class="${c.live?'ptslive':''}" ${c.live?'title="Uključuje bodove iz utakmice u tijeku (privremeno)"':''}>${c.pts}</td>`; });
     html += `<td class="total">${t.total}</td></tr>`;
   });
   html += "</tbody>";
@@ -420,13 +428,15 @@ function render(results){
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
       else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td>${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${club}</td>`; }
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
-      cards += `<td>${r ? r.w : 0}</td>`;
-      if(lg.type !== "nba") cards += `<td>${r ? r.d : 0}</td>`;
-      cards += `<td>${r ? r.l : 0}</td><td class="pts">${s.pts}</td></tr>`;
+      const dl = s.live;
+      cards += `<td>${(r ? r.w : 0) + (dl ? dl.w : 0)}</td>`;
+      if(lg.type !== "nba") cards += `<td>${(r ? r.d : 0) + (dl ? dl.d : 0)}</td>`;
+      cards += `<td>${(r ? r.l : 0) + (dl ? dl.l : 0)}</td><td class="pts ${dl?'ptslive':''}" ${dl?'title="Uključuje utakmicu u tijeku (privremeno)"':''}>${s.pts}</td></tr>`;
     });
     cards += "</table></div>";
   });
   document.getElementById("cards").innerHTML = cards;
+  if(skipWeek) return;      // ponovni crtež zbog live rezultata — ne diraj prikaz utakmica
   initViewer(results);
   startCountdowns();
   buildWeek();
@@ -502,6 +512,19 @@ async function buildWeek(){
   }));
   const live = [];
   perLeague.forEach(({ arr }) => arr.forEach(x => { if(x.m.state === "in") live.push(x); }));
+  // privremeni bodovi iz utakmica u tijeku -> tablice odmah prate live rezultat
+  const nd = {};
+  live.forEach(({ lg, myName, m }) => {
+    const a = parseInt(m.myScore, 10), b = parseInt(m.oppScore, 10);
+    if(isNaN(a) || isNaN(b)) return;
+    const w = a > b ? 1 : 0, l = a < b ? 1 : 0, d = (a === b && lg.type !== "nba") ? 1 : 0;
+    const pts = lg.type === "nba" ? w : (w*3 + d);
+    nd[lg.name + "|" + myName] = { pts, w, d, l };
+  });
+  if(JSON.stringify(nd) !== JSON.stringify(LIVE_DELTA)){
+    LIVE_DELTA = nd;
+    if(LAST_RESULTS) render(LAST_RESULTS, true);
+  }
   let html = "";
   if(live.length){
     html += `<div class="wkblock live"><div class="wkhdr"><span class="dot"></span>Uživo sada</div><table class="mtable wktable">`;
