@@ -418,9 +418,10 @@ function render(results, skipWeek){
     cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span class="countdown" data-lg="${lg.name}" title="Odbrojavanje do prve utakmice">—</span><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
     cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
-    const _entries = Object.entries(lg.picks);
-    let _max = -1, _lead = -1;
-    _entries.forEach(([pp], i) => { const pt = scores[pp][lg.name].pts; if(pt > _max){ _max = pt; _lead = i; } });
+    // poredaj igrače u kartici lige po bodovima (uklj. privremene iz utakmica u tijeku)
+    const _entries = Object.entries(lg.picks).sort((a, b) => scores[b[0]][lg.name].pts - scores[a[0]][lg.name].pts);
+    const _max = _entries.length ? scores[_entries[0][0]][lg.name].pts : 0;
+    const _lead = _max > 0 ? 0 : -1;
     _entries.forEach(([p, club], i) => {
       const s = scores[p][lg.name];
       const r = s.row;
