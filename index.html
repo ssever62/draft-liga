@@ -159,6 +159,9 @@
   .wksc.wklive{font-weight:900; color:#ff6b6b;}
   .wkclock{font-weight:700; font-size:.72rem; color:var(--muted); margin-left:4px;}
   .ptslive{color:#ff6b6b !important; font-weight:800;}
+  .myclub{font-weight:800; color:var(--text);}
+  .oppclub{font-weight:500; color:var(--muted);}
+  .fcell.fpast{opacity:.35; filter:grayscale(.4);}
   .ptslive::after{content:"•"; color:#ff6b6b; margin-left:3px; animation:wkpulse2 1.4s infinite;}
   @keyframes wkpulse2{0%,100%{opacity:1}50%{opacity:.25}}
   .wksc.wkupc{color:var(--muted);}
@@ -470,7 +473,7 @@ function weekRow(x){
   const { lg, pl, myName, m } = x;
   const logo = weekLogo(lg, myName);
   const derby = isDerby(lg, m.oppId);
-  const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
+  const vs = vsPair(myName, m);
   const who = derby ? `${pl} vs ${derby}` : pl;
   let res, cls;
   if(m.state === "post"){ res = `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}`; cls = "wkres"; }
@@ -790,9 +793,16 @@ function fmtDate(iso, withTime){
   return withTime ? `${s} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}` : s;
 }
 
+// naglasi klub igrača u odnosu na protivnika
+function vsPair(myName, m){
+  const me = `<span class="myclub">${myName}</span>`;
+  const opp = `<span class="oppclub">${m.opp}</span>`;
+  return m.home ? `${me} – ${opp}` : `${opp} – ${me}`;
+}
+
 function matchRowHtml(m, myName, lg){
   const derby = isDerby(lg, m.oppId);
-  const vs = m.home ? `${myName} – ${m.opp}` : `${m.opp} – ${myName}`;
+  const vs = vsPair(myName, m);
   const badge = derby ? ` <span class="derbybadge">DERBI DELLA ${String(derby).toUpperCase()}</span>` : "";
   const score = m.state === "post" ? `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}` : (m.state === "in" ? "UŽIVO" : "—");
   const dfr = fdrBadge(matchFdr(lg, m));
@@ -914,7 +924,7 @@ async function renderNextView(v){
     let rows = "";
     results.filter(r => r.lg === lg).forEach(({p, club, id, next}) => {
       const derby = next && isDerby(lg, next.oppId);
-      const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const vs = next ? vsPair(club, next) : "—";
       const badge = derby ? ` <span class="derbybadge">DERBI DELLA ${String(derby).toUpperCase()}</span>` : "";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
@@ -952,7 +962,7 @@ async function renderNextByPlayers(v){
       if(!r) return;
       const { club, id, next } = r;
       const derby = next && isDerby(lg, next.oppId);
-      const vs = next ? (next.home ? `${club} – ${next.opp}` : `${next.opp} – ${club}`) : "—";
+      const vs = next ? vsPair(club, next) : "—";
       const badge = derby ? ` <span class="derbybadge">DERBI DELLA ${String(derby).toUpperCase()}</span>` : "";
       const ds = next ? fmtDate(next.date, true) : (id ? "nema termina" : "nema podataka");
       const dfr = next ? fdrBadge(matchFdr(lg, next)) : "";
@@ -985,7 +995,7 @@ async function renderFdrView(v){
     let ups = [];
     if(id){
       const ev = await fetchSchedule(lg, id);
-      ups = ev.filter(m => m.state !== "post");
+      ups = ev;   // sve utakmice sezone (odigrane se prikazuju zatamnjeno)
     }
     return { lg, club, id, ups };
   }));
@@ -1009,17 +1019,19 @@ async function renderFdrView(v){
     for(let i=0;i<maxN;i++){
       const m = ups[i];
       if(!m){ body += `<td class="fcell empty">—</td>`; continue; }
-      const d = matchFdr(lg, m); sum+=d; cnt++;
+      const d = matchFdr(lg, m);
+      const _past = m.state === "post";
+      if(!_past){ sum+=d; cnt++; }
       const derby = isDerby(lg, m.oppId);
       const src = (m.myML !== null && m.myML !== undefined) ? "kladionički koeficijent" : "procjena snage";
       const oppc = m.oppAbbr && m.oppAbbr !== "?" ? m.oppAbbr : m.opp;
-      body += `<td class="fcell fdr${d}${derby?' derbycell':''}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5 (${src})${derby?(' · DERBI DELLA '+String(derby).toUpperCase()):''}">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
+      body += `<td class="fcell fdr${d}${_past?' fpast':''}${derby?' derbycell':''}" title="${club} ${m.home?'vs':'@'} ${m.opp} · ${fmtDate(m.date)} · FDR ${d}/5 (${src})${_past?' · odigrano':''}${derby?(' · DERBI DELLA '+String(derby).toUpperCase()):''}">${oppc}<small>${m.home?'(H)':'(A)'}</small></td>`;
     }
     const avg = cnt ? (sum/cnt).toFixed(1) : "—";
     body += `<td class="fdravg">${avg}</td></tr>`;
   });
   wrap.className = "";
-  wrap.innerHTML = `<div class="fdrnote">Stupci = sve preostale utakmice redom (1 = prva sljedeća). Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. FDR se računa iz <b>kladioničkih koeficijenata</b> gdje postoje (bliska kola), inače iz procjene snage (zadnje 3 sezone). Ø = prosjek.</div>`
+  wrap.innerHTML = `<div class="fdrnote">Stupci = sve utakmice sezone redom; <b>odigrane su zatamnjene</b>. Povuci tablicu ulijevo/udesno za kasnija kola — klub ostaje zaljepljen slijeva. Boja = težina protivnika: <span class="fdr fdr1">1</span> lako → <span class="fdr fdr5">5</span> teško. FDR se računa iz <b>kladioničkih koeficijenata</b> gdje postoje (bliska kola), inače iz procjene snage (zadnje 3 sezone). Ø = prosjek preostalih utakmica.</div>`
     + `<div class="fdrscroll"><table class="fdrgrid">${head}${body}</table></div>`;
 }
 
