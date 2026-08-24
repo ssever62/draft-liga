@@ -39,6 +39,16 @@
   .logomark{height:70px; width:auto; vertical-align:middle; margin-right:12px; flex:0 0 auto;}
   h1{display:flex; align-items:center; gap:2px;}
   /* glavna tablica */
+  #tot{table-layout:fixed;}
+  #tot th:first-child,#tot td:first-child{width:46px; text-align:center;}
+  #tot th:nth-child(2),#tot td:nth-child(2){width:150px; text-align:left; font-weight:700;}
+  #tot th:last-child,#tot td:last-child{width:96px;}
+  #tot .rankcell{text-align:center; color:var(--muted); font-weight:800;}
+  #tot .goldrow td{background:rgba(255,209,102,.16);}
+  #tot .redrow td{background:rgba(255,107,107,.13);}
+  #tot .goldline td{border-bottom:3px solid var(--gold);}
+  #tot .redline td{border-bottom:3px solid var(--red);}
+  #tot .goldrow .pname::after{content:" 🏆"; font-size:1.05em;}
   #matrix{table-layout:fixed;}
   #matrix th:first-child,#matrix td:first-child{width:46px;}
   #matrix th.rankcol{text-align:center;}
@@ -160,6 +170,7 @@
   .wkclock{font-weight:700; font-size:.72rem; color:var(--muted); margin-left:4px;}
   .ptslive{color:#ff6b6b !important; font-weight:800;}
   .myclub{font-weight:800; color:var(--text);}
+  .rnd{font-size:.68rem; font-weight:700; color:var(--muted); background:var(--card2); border:1px solid var(--border); border-radius:5px; padding:0 5px; margin-left:6px; vertical-align:middle;}
   .oppclub{font-weight:500; color:var(--muted);}
   .fcell.fpast{opacity:.35; filter:grayscale(.4);}
   .ptslive::after{content:"•"; color:#ff6b6b; margin-left:3px; animation:wkpulse2 1.4s infinite;}
@@ -242,6 +253,9 @@
   </div>
 
   <h2>🏆 Ukupna tablica</h2>
+  <div class="wrap"><table id="tot"></table></div>
+
+  <h2>📊 Ukupna tablica po ligama</h2>
   <div class="wrap"><table id="matrix"></table></div>
 
   <h2>Detalji po ligama</h2>
@@ -409,6 +423,39 @@ function render(results, skipWeek){
   const allTied = rank[0] === worst;
   const firstWorst = rank.indexOf(worst);
 
+  // ===== zbirna tablica: odigrano, P, R, I, gol-razlika, bodovi =====
+  const agg = PLAYERS.map(p => {
+    let w = 0, d = 0, l = 0, gd = 0, pts = 0, lv = false;
+    LEAGUES.forEach(lg => {
+      const sc = scores[p][lg.name], r = sc.row, dl = sc.live;
+      w += (r ? r.w : 0) + (dl ? dl.w : 0);
+      d += (r ? r.d : 0) + (dl ? dl.d : 0);
+      l += (r ? r.l : 0) + (dl ? dl.l : 0);
+      gd += sc.gd || 0;
+      pts += sc.pts;
+      if(dl) lv = true;
+    });
+    return { p, w, d, l, gd, pts, lv };
+  }).sort((a,b) => (b.pts - a.pts) || (b.gd - a.gd));
+  const aRank = [];
+  agg.forEach((t,i) => { aRank[i] = (i > 0 && t.pts === agg[i-1].pts && t.gd === agg[i-1].gd) ? aRank[i-1] : i+1; });
+  const aLast1 = aRank.lastIndexOf(1), aWorst = aRank[aRank.length-1];
+  const aAllTied = aRank[0] === aWorst, aFirstWorst = aRank.indexOf(aWorst);
+  let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th><th>O</th><th>P</th><th>R</th><th>I</th><th>GR</th><th>BOD</th></tr></thead><tbody>";
+  agg.forEach((t,i) => {
+    const cls = [];
+    if(aRank[i] === 1) cls.push("goldrow");
+    if(i === aLast1 && !aAllTied) cls.push("goldline");
+    if(!aAllTied && aRank[i] === aWorst) cls.push("redrow");
+    if(!aAllTied && i === aFirstWorst - 1) cls.push("redline");
+    const gdTxt = (t.gd > 0 ? "+" : "") + t.gd;
+    tot += `<tr class="${cls.join(' ')}"><td class="rankcell">${aRank[i]}</td><td class="pname">${t.p}</td>`
+      + `<td>${t.w + t.d + t.l}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${gdTxt}</td>`
+      + `<td class="total ${t.lv?'ptslive':''}" ${t.lv?'title="Uključuje utakmicu u tijeku (privremeno)"':''}>${t.pts}</td></tr>`;
+  });
+  tot += "</tbody>";
+  document.getElementById("tot").innerHTML = tot;
+
   let html = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th>";
   LEAGUES.forEach(lg => html += `<th class="lgcol">${LEAGUE_LOGOS[lg.name] ? `<img class="thwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span>${lg.name}</span></th>`);
   html += "<th>TOTAL</th></tr></thead><tbody>";
@@ -509,7 +556,12 @@ async function buildWeek(){
     const seen = new Map();
     const consider = (m, myId) => {
       const o = own[String(myId)];
-      if(!o || !m || seen.has(m.id)) return;
+      if(!o || !m) return;
+      if(seen.has(m.id)){
+        const ex = seen.get(m.id);
+        if(!ex.m.round && m.round) ex.m.round = m.round;   // kolo dolazi iz rasporeda kluba
+        return;
+      }
       const t = new Date(m.date).getTime();
       if(isNaN(t) || t < A || t > B) return;
       seen.set(m.id, { lg, pl: o.pl, myName: o.club, m });
@@ -705,6 +757,9 @@ function parseEvent(e, id, lg){
     id: e.id,
     date: e.date,
     liveTxt,
+    lgSlug: (e.league && e.league.slug) || "",
+    stName: (e.seasonType && e.seasonType.name) || "",
+    round: null,
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
     oppAbbr: (opp && opp.team) ? (opp.team.abbreviation || opp.team.shortDisplayName || "?") : "?",
@@ -731,6 +786,12 @@ async function fetchSchedule(lg, id){
     }catch(e){}
   }
   const events = [...map.values()].sort((a,b) => new Date(a.date) - new Date(b.date));
+  // redni broj kola = redoslijed utakmica u toj ligi (kupovi se preskoče)
+  let _n = 0;
+  events.forEach(m => {
+    const inLeague = lg.type === "nba" ? /regular/i.test(m.stName || "") : (!m.lgSlug || m.lgSlug === lg.espn);
+    m.round = inLeague ? ++_n : null;
+  });
   SCHED_CACHE[key] = events;
   return events;
 }
@@ -797,7 +858,13 @@ function fmtDate(iso, withTime){
 function vsPair(myName, m){
   const me = `<span class="myclub">${myName}</span>`;
   const opp = `<span class="oppclub">${m.opp}</span>`;
-  return m.home ? `${me} – ${opp}` : `${opp} – ${me}`;
+  return (m.home ? `${me} – ${opp}` : `${opp} – ${me}`) + roundTag(m);
+}
+// oznaka kola (npr. "3. kolo"; NBA: "3. ut.")
+function roundTag(m, lg){
+  if(!m || !m.round) return "";
+  const nba = /regular/i.test(m.stName || "");
+  return ` <span class="rnd">${m.round}. ${nba ? "ut." : "kolo"}</span>`;
 }
 
 function matchRowHtml(m, myName, lg){
