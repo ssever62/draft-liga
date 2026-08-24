@@ -43,6 +43,7 @@
   #tot th:first-child,#tot td:first-child{width:46px; text-align:center;}
   #tot th:nth-child(2),#tot td:nth-child(2){width:150px; text-align:left; font-weight:700;}
   #tot th:last-child,#tot td:last-child{width:96px;}
+  #tot th{font-size:.68rem; letter-spacing:.03em;}
   #tot .rankcell{text-align:center; color:var(--muted); font-weight:800;}
   #tot .goldrow td{background:rgba(255,209,102,.16);}
   #tot .redrow td{background:rgba(255,107,107,.13);}
@@ -83,6 +84,12 @@
   .clublogo{width:18px; height:18px; vertical-align:middle; margin-right:6px; object-fit:contain;}
   .card td:nth-child(3), .card th:nth-child(3){text-align:left;}
   .card td:nth-child(3){white-space:nowrap;}
+  .card table{table-layout:fixed;}
+  .card th:nth-child(1),.card td:nth-child(1){width:24px;}
+  .card th:nth-child(2),.card td:nth-child(2){width:72px;}
+  .card td:nth-child(3){overflow:hidden; text-overflow:ellipsis;}
+  .card th:nth-child(n+4),.card td:nth-child(n+4){width:32px;}
+  .card th:last-child,.card td:last-child{width:42px;}
   .foot{margin-top:30px; color:var(--muted); font-size:.75rem; line-height:1.5;}
   .muted{color:var(--muted);}
   .pcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;}
@@ -323,6 +330,17 @@ const NBA_LOGOS = {
   "LA Clippers":"https://a.espncdn.com/i/teamlogos/nba/500/lac.png"
 };
 
+// skraćeni nazivi za uske kartice liga
+const SHORT_CLUB = {
+  "Borussia Mönchengladbach": "B. Mönchengladbach",
+  "1. FC Union Berlin": "Union Berlin",
+  "Eintracht Frankfurt": "E. Frankfurt",
+  "Deportivo La Coruña": "Deportivo",
+  "Golden State Warriors": "Golden State",
+  "Washington Wizards": "Washington",
+};
+const shortClub = n => SHORT_CLUB[n] || n;
+
 const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]/g,"");
 
 function findTeam(rows, wanted){
@@ -442,7 +460,7 @@ function render(results, skipWeek){
   agg.forEach((t,i) => { aRank[i] = (i > 0 && t.pts === agg[i-1].pts && t.gd === agg[i-1].gd) ? aRank[i-1] : i+1; });
   const aLast1 = aRank.lastIndexOf(1), aWorst = aRank[aRank.length-1];
   const aAllTied = aRank[0] === aWorst, aFirstWorst = aRank.indexOf(aWorst);
-  let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th><th>O</th><th>P</th><th>R</th><th>I</th><th>GR</th><th>BOD</th></tr></thead><tbody>";
+  let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th><th>Utakmice</th><th>Pobjede</th><th>Neriješeno</th><th>Porazi</th><th>Gol razlika</th><th>Bodovi</th></tr></thead><tbody>";
   agg.forEach((t,i) => {
     const cls = [];
     if(aRank[i] === 1) cls.push("goldrow");
@@ -494,8 +512,8 @@ function render(results, skipWeek){
       const _isLead = _rk[i] === 1;
       cards += `<tr class="${_isLead?'lgleader':''} ${i===_lastLead?'lgline':''}"><td>${_rk[i]}</td><td>${p}${_isLead?' <span class="smalltrophy">🥇</span>':''}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
-      else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td>${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${club}</td>`; }
-      else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td>${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${r.team}</td>`; }
+      else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td title="${club}">${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${shortClub(club)}</td>`; }
+      else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td title="${r.team}">${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${shortClub(r.team)}</td>`; }
       const dl = s.live;
       cards += `<td>${(r ? r.w : 0) + (dl ? dl.w : 0)}</td>`;
       if(lg.type !== "nba") cards += `<td>${(r ? r.d : 0) + (dl ? dl.d : 0)}</td>`;
