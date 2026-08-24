@@ -163,7 +163,8 @@
   .wktable tr:last-child td{border-bottom:none;}
   .wktable td.wkpl{width:104px; color:var(--muted);}
   .wktable td.wkclub{width:auto;}
-  .wktable td.wksc{width:98px; text-align:right; font-variant-numeric:tabular-nums;}
+  .wktable td.wkrnd{width:58px; text-align:right; color:var(--muted); font-size:.7rem; font-weight:700;}
+  .wktable td.wksc{width:92px; text-align:right; font-variant-numeric:tabular-nums;}
   .wktable td.wkclub .clublogo{width:18px; height:18px; object-fit:contain; vertical-align:middle; margin-right:6px;}
   .wksc.wkres{font-weight:800; color:var(--text);}
   .wksc.wklive{font-weight:900; color:#ff6b6b;}
@@ -520,7 +521,7 @@ function weekRow(x){
   const { lg, pl, myName, m } = x;
   const logo = weekLogo(lg, myName);
   const derby = isDerby(lg, m.oppId);
-  const vs = vsPair(myName, m);
+  const vs = vsPair(myName, m, true);
   const who = derby ? `${pl} vs ${derby}` : pl;
   let res, cls;
   if(m.state === "post"){ res = `${m.home?m.myScore:m.oppScore}:${m.home?m.oppScore:m.myScore}`; cls = "wkres"; }
@@ -532,7 +533,7 @@ function weekRow(x){
   }
   else { res = fmtDate(m.date, true); cls = "wkupc"; }
   const img = logo ? `<img class="clublogo" src="${logo}" onerror="this.style.visibility='hidden'">` : "";
-  return `<tr><td class="wkpl">${who}</td><td class="wkclub">${img}${vs}</td><td class="wksc ${cls}">${res}</td></tr>`;
+  return `<tr><td class="wkpl">${who}</td><td class="wkclub">${img}${vs}</td><td class="wkrnd">${roundTxt(m)}</td><td class="wksc ${cls}">${res}</td></tr>`;
 }
 function ymd(ms){ const d = new Date(ms); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`; }
 async function leagueEventsRange(lg, from, to){
@@ -855,10 +856,15 @@ function fmtDate(iso, withTime){
 }
 
 // naglasi klub igrača u odnosu na protivnika
-function vsPair(myName, m){
+function vsPair(myName, m, noTag){
   const me = `<span class="myclub">${myName}</span>`;
   const opp = `<span class="oppclub">${m.opp}</span>`;
-  return (m.home ? `${me} – ${opp}` : `${opp} – ${me}`) + roundTag(m);
+  return (m.home ? `${me} – ${opp}` : `${opp} – ${me}`) + (noTag ? "" : roundTag(m));
+}
+// tekst kola bez oznake (za zaseban stupac)
+function roundTxt(m){
+  if(!m || !m.round) return "";
+  return `${m.round}. ${/regular/i.test(m.stName || "") ? "ut." : "kolo"}`;
 }
 // oznaka kola (npr. "3. kolo"; NBA: "3. ut.")
 function roundTag(m, lg){
