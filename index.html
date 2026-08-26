@@ -44,6 +44,17 @@
   #tot th:nth-child(2),#tot td:nth-child(2){width:150px; text-align:left; font-weight:700;}
   #tot th:last-child,#tot td:last-child{width:96px;}
   #tot th{font-size:.68rem; letter-spacing:.03em;}
+  .habbr{display:none;}
+  @media(max-width:760px){
+    .hfull{display:none;}
+    .habbr{display:inline;}
+    #matrix{min-width:660px;}
+    #tot{min-width:420px;}
+    .grid{grid-template-columns:1fr;}
+    .weekwrap{grid-template-columns:1fr;}
+    h1{font-size:1.25rem;}
+    .logomark{height:48px;}
+  }
   #tot .rankcell{text-align:center; color:var(--muted); font-weight:800;}
   #tot .goldrow td{background:rgba(255,209,102,.16);}
   #tot .redrow td{background:rgba(255,107,107,.13);}
@@ -410,8 +421,15 @@ async function loadAll(){
         return { lg, rows, err:null };
       }catch(e){ return { lg, rows:[], err:e.message }; }
     }));
+    const empty = results.every(r => !r.rows || !r.rows.length);
+    if(empty && (loadAll._try = (loadAll._try || 0) + 1) <= 2){
+      st.textContent = "Podaci nisu stigli — ponovni pokušaj…";
+      setTimeout(loadAll, 2500);
+      return;
+    }
+    loadAll._try = 0;
     render(results);
-    st.textContent = "Zadnje osvježeno: " + new Date().toLocaleString("hr-HR");
+    st.textContent = (empty ? "⚠️ Podaci trenutno nisu dostupni · " : "") + "Zadnje osvježeno: " + new Date().toLocaleString("hr-HR");
   } finally {
     if(rb) rb.classList.remove("loading");
   }
@@ -463,10 +481,13 @@ function render(results, skipWeek){
   agg.forEach((t,i) => { aRank[i] = (i > 0 && t.pts === agg[i-1].pts && t.gd === agg[i-1].gd) ? aRank[i-1] : i+1; });
   const aLast1 = aRank.lastIndexOf(1), aWorst = aRank[aRank.length-1];
   const aAllTied = aRank[0] === aWorst, aFirstWorst = aRank.indexOf(aWorst);
-  let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th><th>Utakmice</th><th>Pobjede</th><th>Neriješeno</th><th>Porazi</th><th>Gol razlika</th><th>Bodovi</th></tr></thead><tbody>";
+  const _th = (full, ab) => `<th><span class="hfull">${full}</span><span class="habbr" title="${full}">${ab}</span></th>`;
+  let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th>"
+    + _th("Utakmice","O") + _th("Pobjede","P") + _th("Neriješeno","R") + _th("Porazi","I") + _th("Gol razlika","GR") + _th("Bodovi","BOD")
+    + "</tr></thead><tbody>";
   agg.forEach((t,i) => {
     const cls = [];
-    if(aRank[i] === 1) cls.push("goldrow");
+    if(aRank[i] === 1 && !aAllTied) cls.push("goldrow");
     if(i === aLast1 && !aAllTied) cls.push("goldline");
     if(!aAllTied && aRank[i] === aWorst) cls.push("redrow");
     if(!aAllTied && i === aFirstWorst - 1) cls.push("redline");
@@ -483,7 +504,7 @@ function render(results, skipWeek){
   html += "<th>TOTAL</th></tr></thead><tbody>";
   totals.forEach((t,i) => {
     const cls = [];
-    if(rank[i] === 1) cls.push("goldrow");
+    if(rank[i] === 1 && !allTied) cls.push("goldrow");
     if(i === lastFirst && !allTied) cls.push("goldline");
     if(!allTied && rank[i] === worst) cls.push("redrow");
     if(!allTied && i === firstWorst - 1) cls.push("redline");
@@ -512,7 +533,7 @@ function render(results, skipWeek){
     _entries.forEach(([p, club], i) => {
       const s = scores[p][lg.name];
       const r = s.row;
-      const _isLead = _rk[i] === 1;
+      const _isLead = _rk[i] === 1 && _rk[_rk.length-1] !== 1;
       cards += `<tr class="${_isLead?'lgleader':''} ${i===_lastLead?'lgline':''}"><td>${_rk[i]}</td><td>${p}${_isLead?' <span class="smalltrophy">🥇</span>':''}</td>`;
       if(!club) cards += `<td class="pick">&lt;klub&gt;</td>`;
       else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td title="${club}">${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${shortClub(club)}</td>`; }
