@@ -45,6 +45,30 @@
   #tot th:last-child,#tot td:last-child{width:96px;}
   #tot th{font-size:.68rem; letter-spacing:.03em;}
   .habbr{display:none;}
+  .resbtn{background:var(--card2); color:var(--text); border:1px solid var(--accent); font-weight:800; font-size:.92rem; line-height:1.15; cursor:pointer;}
+  .resbtn:hover{background:var(--accent); color:#08111f; filter:none;}
+  /* tooltip s utakmicama */
+  .tipcell{cursor:help;}
+  #tip{position:fixed; z-index:999; max-width:460px; background:var(--card2); border:1px solid var(--accent); border-radius:10px; padding:9px 12px; box-shadow:0 10px 30px rgba(0,0,0,.55); font-size:.78rem; display:none;}
+  #tip .tt{font-weight:800; color:var(--gold); margin-bottom:6px;}
+  #tip .trow{display:flex; gap:9px; align-items:center; padding:2px 0; white-space:nowrap;}
+  #tip .tlg{color:var(--muted); width:92px; overflow:hidden; text-overflow:ellipsis;}
+  #tip .tvs{flex:1; overflow:hidden; text-overflow:ellipsis;}
+  #tip .tsc{font-weight:800; width:46px; text-align:right; font-variant-numeric:tabular-nums;}
+  #tip .tval{width:34px; text-align:right; color:var(--gold); font-weight:800;}
+  #tip .tsum{margin-top:6px; padding-top:5px; border-top:1px solid var(--border); font-weight:800;}
+  /* pregled rezultata po igračima (6 stupaca) */
+  .rescols{display:grid; grid-template-columns:repeat(6,1fr); gap:10px;}
+  .rescol{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:9px 10px; min-width:0;}
+  .reshead{font-weight:800; font-size:.92rem; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
+  .reshead .respts{color:var(--gold); font-size:.8rem;}
+  .resrow{display:flex; align-items:center; gap:6px; padding:3px 0; border-bottom:1px solid var(--border); font-size:.74rem; white-space:nowrap;}
+  .resrow:last-child{border-bottom:none;}
+  .resrow .resclub{flex:1; overflow:hidden; text-overflow:ellipsis; font-weight:700;}
+  .resrow .ressc{font-weight:800; font-variant-numeric:tabular-nums;}
+  .resrow.live .ressc{color:#ff6b6b;}
+  @media(max-width:1000px){ .rescols{grid-template-columns:repeat(3,1fr);} }
+  @media(max-width:620px){ .rescols{grid-template-columns:repeat(2,1fr);} }
   @media(max-width:760px){
     .hfull{display:none;}
     .habbr{display:inline;}
@@ -264,6 +288,7 @@
     <div class="sidebtns">
       <a class="clubsbtn sidebtn" href="klubovi.html"><span class="clubsbg" id="clubsbg"></span><span class="clubslabel">🗺️ Odabrani klubovi</span></a>
       <a class="aktbtn sidebtn" href="aktualno.html" title="Sve utakmice sljedećeg kola">📅 AKTUALNO KOLO</a>
+      <button class="sidebtn resbtn" onclick="showView('results')" title="Svi rezultati svakog igrača">📋 REZULTATI PO IGRAČIMA</button>
     </div>
   </div>
 
@@ -492,12 +517,15 @@ function render(results, skipWeek){
     if(!aAllTied && aRank[i] === aWorst) cls.push("redrow");
     if(!aAllTied && i === aFirstWorst - 1) cls.push("redline");
     const gdTxt = (t.gd > 0 ? "+" : "") + t.gd;
+    const _c = (k, val, extra) => `<td class="tipcell ${extra||''}" data-p="${t.p}" data-k="${k}">${val}</td>`;
     tot += `<tr class="${cls.join(' ')}"><td class="rankcell">${aRank[i]}</td><td class="pname">${t.p}</td>`
-      + `<td>${t.w + t.d + t.l}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td><td>${gdTxt}</td>`
-      + `<td class="total ${t.lv?'ptslive':''}" ${t.lv?'title="Uključuje utakmicu u tijeku (privremeno)"':''}>${t.pts}</td></tr>`;
+      + _c("o", t.w + t.d + t.l) + _c("w", t.w) + _c("d", t.d) + _c("l", t.l) + _c("gd", gdTxt)
+      + _c("pts", t.pts, "total " + (t.lv ? "ptslive" : "")) + `</tr>`;
   });
   tot += "</tbody>";
   document.getElementById("tot").innerHTML = tot;
+  bindTips();
+  if(!skipWeek) buildPlayerMatches(true).catch(()=>{});
 
   let html = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th>";
   LEAGUES.forEach(lg => html += `<th class="lgcol">${LEAGUE_LOGOS[lg.name] ? `<img class="thwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span>${lg.name}</span></th>`);
@@ -839,6 +867,84 @@ async function fetchSchedule(lg, id){
   return events;
 }
 
+// ===== utakmice po igraču (za tooltip i pregled rezultata) =====
+let PMATCH = null;
+async function buildPlayerMatches(force){
+  if(PMATCH && !force) return PMATCH;
+  const out = {}; PLAYERS.forEach(p => out[p] = []);
+  await Promise.all(LEAGUES.map(async lg => {
+    await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
+      const id = await clubId(lg, club);
+      if(!id) return;
+      let ev = [];
+      try{ ev = await fetchSchedule(lg, id); }catch(e){}
+      ev.forEach(m => {
+        if(m.state !== "post" && m.state !== "in") return;
+        const a = parseInt(m.myScore, 10), b = parseInt(m.oppScore, 10);
+        if(isNaN(a) || isNaN(b)) return;
+        const res = a > b ? "W" : (a < b ? "L" : (lg.type === "nba" ? null : "D"));
+        if(!res) return;
+        out[p].push({ lg, club, m, a, b, res,
+          live: m.state === "in",
+          pts: lg.type === "nba" ? (res === "W" ? 1 : 0) : (res === "W" ? 3 : res === "D" ? 1 : 0),
+          gd: a - b });
+      });
+    }));
+  }));
+  PLAYERS.forEach(p => out[p].sort((x,y) => new Date(x.m.date) - new Date(y.m.date)));
+  PMATCH = out;
+  return out;
+}
+
+const TIP_TITLE = { o:"Sve odigrane utakmice", w:"Pobjede", d:"Neriješeno", l:"Porazi", gd:"Gol razlika", pts:"Bodovi" };
+function tipHtml(player, kind){
+  const all = (PMATCH && PMATCH[player]) || [];
+  const list = kind === "w" ? all.filter(x => x.res === "W")
+             : kind === "d" ? all.filter(x => x.res === "D")
+             : kind === "l" ? all.filter(x => x.res === "L")
+             : all;
+  let h = `<div class="tt">${player} · ${TIP_TITLE[kind] || ""} (${list.length})</div>`;
+  if(!list.length) return h + `<div class="muted">Još nema odigranih utakmica.</div>`;
+  list.forEach(x => {
+    const vs = x.m.home ? `${shortClub(x.club)} – ${x.m.opp}` : `${x.m.opp} – ${shortClub(x.club)}`;
+    const sc = x.m.home ? `${x.a}:${x.b}` : `${x.b}:${x.a}`;
+    const val = kind === "gd" ? ((x.gd > 0 ? "+" : "") + x.gd) : (kind === "pts" ? "+" + x.pts : "");
+    h += `<div class="trow"><span class="tlg">${x.lg.name}</span><span class="tvs">${vs}</span>`
+       + `<span class="tsc">${sc}${x.live ? " 🔴" : ""}</span><span class="res ${x.res}">${x.res}</span>`
+       + (val ? `<span class="tval">${val}</span>` : "") + `</div>`;
+  });
+  if(kind === "gd") h += `<div class="tsum">Ukupno: ${(list.reduce((s,x)=>s+x.gd,0) > 0 ? "+" : "") + list.reduce((s,x)=>s+x.gd,0)}</div>`;
+  if(kind === "pts") h += `<div class="tsum">Ukupno: ${list.reduce((s,x)=>s+x.pts,0)} bodova</div>`;
+  return h;
+}
+let TIP_EL = null, TIP_CUR = null;
+function tipBox(){
+  if(!TIP_EL){ TIP_EL = document.createElement("div"); TIP_EL.id = "tip"; document.body.appendChild(TIP_EL); }
+  return TIP_EL;
+}
+function showTip(td){
+  const p = td.dataset.p, k = td.dataset.k;
+  TIP_CUR = p + "|" + k;
+  const box = tipBox();
+  box.innerHTML = PMATCH ? tipHtml(p, k) : `<div class="tt">${p}</div><div class="muted">Učitavanje utakmica…</div>`;
+  box.style.display = "block";
+  const r = td.getBoundingClientRect(), bw = box.offsetWidth, bh = box.offsetHeight;
+  let left = r.left + r.width/2 - bw/2;
+  left = Math.max(8, Math.min(left, window.innerWidth - bw - 8));
+  let top = r.bottom + 8;
+  if(top + bh > window.innerHeight - 8) top = Math.max(8, r.top - bh - 8);
+  box.style.left = left + "px"; box.style.top = top + "px";
+  if(!PMATCH) buildPlayerMatches().then(() => { if(TIP_CUR === p + "|" + k && box.style.display === "block") showTip(td); });
+}
+function hideTip(){ TIP_CUR = null; if(TIP_EL) TIP_EL.style.display = "none"; }
+function bindTips(){
+  const t = document.getElementById("tot");
+  if(!t) return;
+  t.addEventListener("mouseover", e => { const td = e.target.closest && e.target.closest("td.tipcell"); if(td) showTip(td); });
+  t.addEventListener("mouseout", e => { const td = e.target.closest && e.target.closest("td.tipcell"); if(td) hideTip(); });
+  t.addEventListener("click", e => { const td = e.target.closest && e.target.closest("td.tipcell"); if(td) showTip(td); });   // mobitel
+}
+
 let VIEW = { tab:"players", player:null, league:null };
 
 function initViewer(results){
@@ -948,6 +1054,7 @@ function renderView(){
   if(VIEW.tab === "leagues") return renderLeaguesView(v);
   if(VIEW.tab === "next") return renderNextView(v);
   if(VIEW.tab === "nextPlayers") return renderNextByPlayers(v);
+  if(VIEW.tab === "results") return renderResultsView(v);
   if(VIEW.tab === "fdr") return renderFdrView(v);
 }
 
@@ -1086,6 +1193,27 @@ async function renderNextByPlayers(v){
     html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
   });
   v.innerHTML = html;
+}
+
+async function renderResultsView(v){
+  v.innerHTML = `<div class="muted">Učitavanje rezultata…</div>`;
+  await buildPlayerMatches(true);
+  if(VIEW.tab !== "results") return;
+  let html = `<div class="fdrnote">Svi odigrani rezultati po igraču (najnovije gore). 🔴 = utakmica u tijeku.</div><div class="rescols">`;
+  PLAYERS.forEach(p => {
+    const arr = (PMATCH[p] || []).slice().reverse();
+    const pts = arr.reduce((s,x) => s + x.pts, 0);
+    html += `<div class="rescol"><div class="reshead"><span>${p}</span><span class="respts">${pts} bod${pts===1?"":"a"}</span></div>`;
+    if(!arr.length) html += `<div class="muted" style="font-size:.76rem">Još nema utakmica.</div>`;
+    arr.forEach(x => {
+      const sc = x.m.home ? `${x.a}:${x.b}` : `${x.b}:${x.a}`;
+      html += `<div class="resrow ${x.live?'live':''}" title="${x.lg.name} · ${x.club} ${x.m.home?'vs':'@'} ${x.m.opp} · ${fmtDate(x.m.date)}">`
+        + `<span class="res ${x.res}">${x.res}</span><span class="resclub">${shortClub(x.club)}</span>`
+        + `<span class="ressc">${sc}</span></div>`;
+    });
+    html += `</div>`;
+  });
+  v.innerHTML = html + `</div>`;
 }
 
 const FDR_N = 8;
