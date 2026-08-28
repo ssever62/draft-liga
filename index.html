@@ -1206,10 +1206,9 @@ async function renderResultsView(v){
     html += `<div class="rescol"><div class="reshead"><span>${p}</span><span class="respts">${pts} bod${pts===1?"":"a"}</span></div>`;
     if(!arr.length) html += `<div class="muted" style="font-size:.76rem">Još nema utakmica.</div>`;
     arr.forEach(x => {
-      const sc = x.m.home ? `${x.a}:${x.b}` : `${x.b}:${x.a}`;
       html += `<div class="resrow ${x.live?'live':''}" title="${x.lg.name} · ${x.club} ${x.m.home?'vs':'@'} ${x.m.opp} · ${fmtDate(x.m.date)}">`
-        + `<span class="res ${x.res}">${x.res}</span><span class="resclub">${shortClub(x.club)}</span>`
-        + `<span class="ressc">${sc}</span></div>`;
+        + `<span class="res ${x.res}">${x.res}</span><span class="resclub">${x.m.home?"":"@ "}${shortClub(x.m.opp)}</span>`
+        + `<span class="ressc">${x.a}:${x.b}</span></div>`;
     });
     html += `</div>`;
   });
