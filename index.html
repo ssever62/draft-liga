@@ -58,6 +58,24 @@
   #tip .tval{width:34px; text-align:right; color:var(--gold); font-weight:800;}
   #tip .tsum{margin-top:6px; padding-top:5px; border-top:1px solid var(--border); font-weight:800;}
   /* pregled rezultata po igračima (6 stupaca) */
+  /* balon s igračima */
+  #pmodal{position:fixed; inset:0; background:rgba(4,8,16,.72); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px;}
+  .pmbox{background:var(--card); border:1px solid var(--accent); border-radius:16px; padding:18px 20px; max-width:460px; width:100%; box-shadow:0 18px 50px rgba(0,0,0,.6);}
+  .pmtitle{font-weight:900; font-size:1.1rem; margin-bottom:3px;}
+  .pmsub{color:var(--muted); font-size:.82rem; margin-bottom:14px;}
+  .pmgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:9px;}
+  .pmbtn{background:var(--card2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:13px 6px; font-weight:800; font-size:.95rem; cursor:pointer;}
+  .pmbtn:hover{background:var(--accent); color:#08111f; border-color:var(--accent); filter:none;}
+  .pmclose{margin-top:14px; width:100%; background:transparent; color:var(--muted); border:1px solid var(--border); border-radius:10px; padding:9px; font-weight:700; cursor:pointer;}
+  .pmclose:hover{background:var(--card2); color:var(--text); filter:none;}
+  /* dva stupca: zadnjih / sljedećih 7 dana */
+  .pwcols{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .pwcol{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 13px; min-width:0;}
+  .pwhead{font-weight:800; font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .pwhead.past{color:var(--muted);}
+  .pwhead.next{color:var(--gold);}
+  .pwhead .pwn{font-size:.72rem; background:var(--card2); border:1px solid var(--border); border-radius:6px; padding:0 6px; color:var(--text);}
+  @media(max-width:760px){ .pwcols{grid-template-columns:1fr;} .pmgrid{grid-template-columns:repeat(2,1fr);} }
   .rescols{display:grid; grid-template-columns:repeat(6,1fr); gap:10px;}
   .rescol{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:9px 10px; min-width:0;}
   .reshead{font-weight:800; font-size:.92rem; margin-bottom:7px; display:flex; justify-content:space-between; align-items:center; gap:6px;}
@@ -282,13 +300,15 @@
     </div>
   </div>
 
-  <h2 id="tjedan">🔴 Live utakmice <span class="h2sub">— uživo · rezultati (−7 dana) · raspored (+7 dana)</span></h2>
+  <h2 id="tjedan">🔴 Live utakmice <span class="h2sub">— uživo i rezultati današnjeg dana</span></h2>
   <div class="liverow">
     <div id="weekbody" class="weekwrap"><div class="muted" style="padding:8px 2px">Učitavanje utakmica…</div></div>
     <div class="sidebtns">
       <a class="clubsbtn sidebtn" href="klubovi.html"><span class="clubsbg" id="clubsbg"></span><span class="clubslabel">🗺️ Odabrani klubovi</span></a>
       <a class="aktbtn sidebtn" href="aktualno.html" title="Sve utakmice sljedećeg kola">📅 AKTUALNO KOLO</a>
-      <button class="sidebtn resbtn" onclick="showView('results')" title="Svi rezultati svakog igrača">📋 REZULTATI PO IGRAČIMA</button>
+      <button class="sidebtn resbtn" onclick="openPlayerModal()" title="Odaberi igrača za njegov pregled">📋 REZULTATI PO IGRAČIMA</button>
+      <button class="sidebtn resbtn" onclick="showView('last7')" title="Odigrane utakmice zadnjih 7 dana">⏮️ ZADNJIH 7 DANA</button>
+      <button class="sidebtn resbtn" onclick="showView('next7')" title="Raspored sljedećih 7 dana">⏭️ SLJEDEĆIH 7 DANA</button>
     </div>
   </div>
 
@@ -582,6 +602,7 @@ function render(results, skipWeek){
 
 // ===== Ovaj tjedan: uživo + rezultati (-7d) + raspored (+7d) po ligama =====
 let WEEK_TIMER = null;
+let WEEK_DATA = null;
 function weekLogo(lg, club){
   if(lg.type === "nba") return NBA_LOGOS[club] || "";
   const r = findTeam(LEAGUE_ROWS[lg.name] || [], club);
@@ -631,11 +652,12 @@ async function buildWeek(){
       if(seen.has(m.id)){
         const ex = seen.get(m.id);
         if(!ex.m.round && m.round) ex.m.round = m.round;   // kolo dolazi iz rasporeda kluba
+        if(!ex.owners.some(z => z.pl === o.pl)) ex.owners.push({ pl:o.pl, club:o.club });
         return;
       }
       const t = new Date(m.date).getTime();
       if(isNaN(t) || t < A || t > B) return;
-      seen.set(m.id, { lg, pl: o.pl, myName: o.club, m });
+      seen.set(m.id, { lg, pl: o.pl, myName: o.club, owners: [{ pl:o.pl, club:o.club }], m });
     };
     // Izvor A: raspored lige za prozor od ±7 dana (pouzdano za datume)
     (await leagueEventsRange(lg, fromY, toY)).forEach(e => {
@@ -668,22 +690,26 @@ async function buildWeek(){
     LIVE_DELTA = nd;
     if(LAST_RESULTS) render(LAST_RESULTS, true);
   }
+  WEEK_DATA = perLeague;
   let html = "";
   if(live.length){
     html += `<div class="wkblock live"><div class="wkhdr"><span class="dot"></span>Uživo sada</div><table class="mtable wktable">`;
     live.forEach(x => html += weekRow(x));
     html += `</table></div>`;
   }
+  // samo današnje utakmice
+  const today = new Date().toDateString();
   let any = false;
   perLeague.forEach(({ lg, arr }) => {
-    if(!arr.length) return;
+    const day = arr.filter(x => x.m.state !== "in" && new Date(x.m.date).toDateString() === today);
+    if(!day.length) return;
     any = true;
     const lo = LEAGUE_LOGOS[lg.name] ? `<img src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : "";
     html += `<div class="wkblock"><div class="wkhdr">${lo}<span>${lg.name}</span></div><table class="mtable wktable">`;
-    arr.forEach(x => html += weekRow(x));
+    day.forEach(x => html += weekRow(x));
     html += `</table></div>`;
   });
-  if(!live.length && !any) html += `<div class="muted" style="padding:8px 2px">Nema utakmica u prozoru od ±7 dana.</div>`;
+  if(!live.length && !any) html += `<div class="muted" style="padding:8px 2px">Danas nema utakmica. Koristi gumbe „Zadnjih 7 dana" i „Sljedećih 7 dana" desno.</div>`;
   el.innerHTML = html;
   // Brzo osvježavanje dok je nešto uživo (ili neposredno prije početka)
   const soon = perLeague.some(({arr}) => arr.some(x => {
@@ -1055,6 +1081,8 @@ function renderView(){
   if(VIEW.tab === "next") return renderNextView(v);
   if(VIEW.tab === "nextPlayers") return renderNextByPlayers(v);
   if(VIEW.tab === "results") return renderResultsView(v);
+  if(VIEW.tab === "last7" || VIEW.tab === "next7") return renderWeekView(v, VIEW.tab);
+  if(VIEW.tab === "playerweek") return renderPlayerWeekView(v);
   if(VIEW.tab === "fdr") return renderFdrView(v);
 }
 
@@ -1193,6 +1221,89 @@ async function renderNextByPlayers(v){
     html += `<div class="mhead">${p}</div><table class="mtable nexttable">${rows}</table>`;
   });
   v.innerHTML = html;
+}
+
+// ===== pogledi: zadnjih / sljedećih 7 dana i po igraču =====
+async function ensureWeek(){ if(!WEEK_DATA) await buildWeek(); return WEEK_DATA || []; }
+
+function asPlayer(x, p){
+  const o = (x.owners || []).find(z => z.pl === p);
+  if(!o) return null;
+  if(o.club === x.myName) return { lg:x.lg, pl:p, myName:x.myName, m:x.m };
+  const m = x.m;
+  const inv = Object.assign({}, m, {
+    home: !m.home, opp: x.myName, oppId: null,
+    myScore: m.oppScore, oppScore: m.myScore,
+    res: m.res === "W" ? "L" : (m.res === "L" ? "W" : m.res)
+  });
+  return { lg:x.lg, pl:p, myName:o.club, m:inv };
+}
+
+function weekBlocks(list){
+  let html = "", any = false;
+  LEAGUES.forEach(lg => {
+    const arr = list.filter(x => x.lg === lg).sort((a,b) => new Date(a.m.date) - new Date(b.m.date));
+    if(!arr.length) return;
+    any = true;
+    const lo = LEAGUE_LOGOS[lg.name] ? `<img src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : "";
+    html += `<div class="wkblock"><div class="wkhdr">${lo}<span>${lg.name}</span></div><table class="mtable wktable">`;
+    arr.forEach(x => html += weekRow(x));
+    html += `</table></div>`;
+  });
+  return any ? `<div class="weekwrap">${html}</div>` : `<div class="muted">Nema utakmica u tom razdoblju.</div>`;
+}
+
+async function renderWeekView(v, mode){
+  v.innerHTML = `<div class="muted">Učitavanje utakmica…</div>`;
+  const data = await ensureWeek();
+  if(VIEW.tab !== mode) return;
+  const now = Date.now();
+  const all = [];
+  data.forEach(({ arr }) => arr.forEach(x => all.push(x)));
+  const list = mode === "last7"
+    ? all.filter(x => new Date(x.m.date).getTime() < now && x.m.state !== "pre")
+    : all.filter(x => new Date(x.m.date).getTime() >= now || x.m.state === "pre");
+  const title = mode === "last7" ? "⏮️ Odigrano u zadnjih 7 dana" : "⏭️ Raspored za sljedećih 7 dana";
+  v.innerHTML = `<div class="mhead">${title}</div>` + weekBlocks(list);
+}
+
+async function renderPlayerWeekView(v){
+  const p = VIEW.player;
+  v.innerHTML = `<div class="muted">Učitavanje utakmica…</div>`;
+  const data = await ensureWeek();
+  if(VIEW.tab !== "playerweek" || VIEW.player !== p) return;
+  const now = Date.now(), mine = [];
+  data.forEach(({ arr }) => arr.forEach(x => { const y = asPlayer(x, p); if(y) mine.push(y); }));
+  const past = mine.filter(x => new Date(x.m.date).getTime() < now && x.m.state !== "pre").sort((a,b) => new Date(b.m.date) - new Date(a.m.date));
+  const soon = mine.filter(x => new Date(x.m.date).getTime() >= now || x.m.state === "pre").sort((a,b) => new Date(a.m.date) - new Date(b.m.date));
+  const col = (title, arr, cls) => `<div class="pwcol"><div class="pwhead ${cls}">${title} <span class="pwn">${arr.length}</span></div>`
+    + (arr.length ? `<table class="mtable wktable">${arr.map(x => weekRow(x)).join("")}</table>` : `<div class="muted" style="font-size:.8rem">Nema utakmica.</div>`)
+    + `</div>`;
+  v.innerHTML = `<div class="drillbar">` + PLAYERS.map(x => `<button class="chip ${x===p?'active':''}" onclick="pickPlayerWeek('${x}')">${x}</button>`).join("") + `</div>`
+    + `<div class="pwcols">` + col("⏮️ Zadnjih 7 dana", past, "past") + col("⏭️ Sljedećih 7 dana", soon, "next") + `</div>`;
+}
+
+// balon s popisom igrača
+function openPlayerModal(){
+  let m = document.getElementById("pmodal");
+  if(!m){
+    m = document.createElement("div"); m.id = "pmodal";
+    m.addEventListener("click", e => { if(e.target === m) closePlayerModal(); });
+    document.body.appendChild(m);
+  }
+  m.innerHTML = `<div class="pmbox"><div class="pmtitle">📋 Rezultati po igračima</div>`
+    + `<div class="pmsub">Odaberi igrača za pregled njegovih utakmica</div><div class="pmgrid">`
+    + PLAYERS.map(p => `<button class="pmbtn" onclick="pickPlayerWeek('${p}')">${p}</button>`).join("")
+    + `</div><button class="pmclose" onclick="closePlayerModal()">Zatvori</button></div>`;
+  m.style.display = "flex";
+}
+function closePlayerModal(){ const m = document.getElementById("pmodal"); if(m) m.style.display = "none"; }
+function pickPlayerWeek(p){
+  closePlayerModal();
+  VIEW = { tab:"playerweek", player:p, league:null };
+  syncTabs(); renderView();
+  const h = document.getElementById("pregled");
+  if(h) h.scrollIntoView({ behavior:"smooth", block:"start" });
 }
 
 async function renderResultsView(v){
