@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Tjedni pregled — Klupica Draft Liga</title>
+<meta property="og:title" content="Klupica Draft Liga — tjedni pregled">
+<meta property="og:description" content="Poredak, igrač tjedna, rezultati i šanse za naslov.">
+<meta property="og:image" content="https://ssever62.github.io/draft-liga/c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png">
+<style>
+  :root{
+    --bg:#0b1018; --card:#161d2b; --card2:#111826; --border:#28324a;
+    --text:#eef2f9; --muted:#8b96ad; --accent:#4da3ff; --gold:#ffd166;
+    --green:#3ddc84; --red:#ff6b6b; --orange:#f2a33c;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,Arial,sans-serif; padding:18px 12px 40px;}
+  .sheet{max-width:940px; margin:0 auto;}
+  /* zaglavlje */
+  .hero{position:relative; overflow:hidden; background:linear-gradient(135deg,#17233a 0%,#101726 60%,#1b1430 100%); border:1px solid var(--border); border-radius:20px; padding:20px 24px; display:flex; align-items:center; gap:18px; margin-bottom:14px;}
+  .hero::after{content:""; position:absolute; right:-40px; top:-60px; width:260px; height:260px; background:radial-gradient(circle,rgba(255,209,102,.18),transparent 65%);}
+  .hero img{height:74px; width:auto; flex:0 0 auto;}
+  .kicker{font-size:.72rem; letter-spacing:.22em; color:var(--gold); font-weight:800; text-transform:uppercase;}
+  .hero h1{font-size:1.75rem; line-height:1.1; margin:3px 0 4px; letter-spacing:-.01em;}
+  .hero .range{color:var(--muted); font-size:.86rem;}
+  .grid2{display:grid; grid-template-columns:1.25fr 1fr; gap:14px; margin-bottom:14px;}
+  .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:14px;}
+  .box{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:14px 16px;}
+  .boxtitle{font-size:.72rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); font-weight:800; margin-bottom:10px;}
+  /* poredak */
+  table{width:100%; border-collapse:collapse;}
+  .std td{padding:7px 4px; border-bottom:1px solid var(--border); font-size:.92rem; white-space:nowrap;}
+  .std tr:last-child td{border-bottom:none;}
+  .std .pos{width:26px; color:var(--muted); font-weight:800; text-align:center;}
+  .std .nm{font-weight:800;}
+  .std .pt{text-align:right; font-weight:900; color:var(--gold); width:46px;}
+  .std .gd{text-align:right; color:var(--muted); width:54px; font-size:.84rem;}
+  .std .wk{text-align:right; width:52px; font-weight:800;}
+  .wkpos{color:var(--green);} .wkzero{color:var(--muted);}
+  .mv{display:inline-block; width:34px; font-size:.78rem; font-weight:800;}
+  .mv.up{color:var(--green);} .mv.dn{color:var(--red);} .mv.same{color:var(--muted);}
+  .lead td{background:rgba(255,209,102,.1);}
+  /* istaknuti igrač */
+  .star{display:flex; flex-direction:column; gap:4px;}
+  .star .big{font-size:1.9rem; font-weight:900; line-height:1;}
+  .star .sub{color:var(--muted); font-size:.84rem;}
+  .star .pts{font-size:.95rem; font-weight:800;}
+  .star.hot .pts{color:var(--green);} .star.cold .pts{color:var(--red);}
+  .mini{margin-top:9px; display:flex; flex-direction:column; gap:3px;}
+  .mini div{font-size:.8rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .mini b{color:var(--text);}
+  /* rezultati po igračima */
+  .cols{display:grid; grid-template-columns:repeat(6,1fr); gap:10px;}
+  .col{background:var(--card2); border:1px solid var(--border); border-radius:12px; padding:9px 10px; min-width:0;}
+  .col h4{font-size:.9rem; display:flex; justify-content:space-between; align-items:center; margin-bottom:7px;}
+  .col h4 span{color:var(--gold); font-size:.8rem;}
+  .r{display:flex; align-items:center; gap:5px; font-size:.72rem; padding:2px 0; white-space:nowrap;}
+  .r .b{display:inline-block; min-width:15px; text-align:center; border-radius:3px; font-weight:800; font-size:.66rem; padding:1px 3px;}
+  .b.W{background:rgba(61,220,132,.2); color:var(--green);}
+  .b.D{background:rgba(242,163,60,.2); color:var(--orange);}
+  .b.L{background:rgba(255,107,107,.2); color:var(--red);}
+  .r .o{flex:1; overflow:hidden; text-overflow:ellipsis; color:var(--muted);}
+  .r .s{font-weight:800; font-variant-numeric:tabular-nums;}
+  /* šanse */
+  .odds div.row{display:flex; align-items:center; gap:9px; margin-bottom:7px;}
+  .odds .nm{width:58px; font-weight:800; font-size:.86rem;}
+  .odds .track{flex:1; background:var(--card2); border:1px solid var(--border); border-radius:6px; height:18px; overflow:hidden; position:relative;}
+  .odds .fill{height:100%; background:linear-gradient(90deg,#4da3ff,#3ddc84);}
+  .odds .val{width:48px; text-align:right; font-weight:800; font-size:.82rem; color:var(--gold);}
+  /* nadolazeće */
+  .fx{display:flex; align-items:center; gap:8px; font-size:.82rem; padding:4px 0; border-bottom:1px solid var(--border); white-space:nowrap;}
+  .fx:last-child{border-bottom:none;}
+  .fx .who{width:92px; color:var(--muted); font-size:.76rem; overflow:hidden; text-overflow:ellipsis;}
+  .fx .m{flex:1; overflow:hidden; text-overflow:ellipsis;}
+  .fx .t{color:var(--muted); font-size:.76rem;}
+  .derby{color:#c084fc; font-weight:800;}
+  .foot{color:var(--muted); font-size:.74rem; text-align:center; margin-top:16px; line-height:1.6;}
+  .foot a{color:var(--accent);}
+  .loading{text-align:center; color:var(--muted); padding:60px 0;}
+  @media(max-width:820px){
+    .grid2,.grid3{grid-template-columns:1fr;}
+    .cols{grid-template-columns:repeat(2,1fr);}
+    .hero h1{font-size:1.35rem;} .hero img{height:54px;}
+  }
+</style>
+</head>
+<body>
+<div class="sheet" id="sheet">
+  <div class="loading">Slažem tjedni pregled…</div>
+</div>
+
+<script>
+const PLAYERS = ["Hrvoje","Ogi","Jura","Kavur","Majić","Šimo"];
+const LEAGUES = [
+  { name:"Premier League", type:"football", espn:"eng.1",
+    picks:{ "Hrvoje":"Tottenham Hotspur", "Ogi":"Chelsea", "Šimo":"Newcastle United", "Jura":"Crystal Palace", "Majić":"Leeds United", "Kavur":"Fulham" } },
+  { name:"La Liga", type:"football", espn:"esp.1",
+    picks:{ "Ogi":"Real Sociedad", "Jura":"Athletic Club", "Hrvoje":"Sevilla", "Kavur":"Deportivo La Coruña", "Šimo":"Espanyol", "Majić":"Osasuna" } },
+  { name:"Serie A", type:"football", espn:"ita.1",
+    picks:{ "Jura":"Fiorentina", "Kavur":"Torino", "Ogi":"Sassuolo", "Majić":"Udinese", "Hrvoje":"Parma", "Šimo":"Genoa" } },
+  { name:"Bundesliga", type:"football", espn:"ger.1",
+    picks:{ "Kavur":"Eintracht Frankfurt", "Majić":"Mainz", "Jura":"FC Augsburg", "Šimo":"FC Cologne", "Ogi":"Borussia Mönchengladbach", "Hrvoje":"1. FC Union Berlin" } },
+  { name:"Ligue 1", type:"football", espn:"fra.1",
+    picks:{ "Majić":"Nice", "Šimo":"Strasbourg", "Kavur":"Paris FC", "Hrvoje":"Toulouse", "Jura":"Brest", "Ogi":"Angers" } },
+  { name:"NBA", type:"nba",
+    picks:{ "Šimo":"Miami Heat", "Hrvoje":"Washington Wizards", "Majić":"Indiana Pacers", "Ogi":"Dallas Mavericks", "Kavur":"Golden State Warriors", "Jura":"LA Clippers" } },
+];
+const SHORT = { "Borussia Mönchengladbach":"B. M'gladbach", "1. FC Union Berlin":"Union Berlin", "Eintracht Frankfurt":"E. Frankfurt",
+  "Deportivo La Coruña":"Deportivo", "Golden State Warriors":"Golden State", "Washington Wizards":"Washington", "Tottenham Hotspur":"Tottenham", "Newcastle United":"Newcastle" };
+const short = n => SHORT[n] || n;
+const norm = s => (s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,"");
+const findTeam = (rows, w) => { if(!w) return null; const n = norm(w);
+  return rows.find(r => norm(r.team) === n) || rows.find(r => norm(r.team).includes(n) || n.includes(norm(r.team))) || null; };
+
+async function standings(lg){
+  const url = lg.type === "nba"
+    ? "https://site.api.espn.com/apis/v2/sports/basketball/nba/standings?level=1&season=2027"
+    : `https://site.api.espn.com/apis/v2/sports/soccer/${lg.espn}/standings`;
+  const rows = [];
+  try{
+    const d = await fetch(url, {cache:"no-store"}).then(r => r.json());
+    (function walk(o){
+      if(!o || typeof o !== "object") return;
+      if(o.team && o.stats){
+        const g = n => { const s = o.stats.find(x => x.name === n); return s ? +s.value : 0; };
+        rows.push({ team:o.team.displayName, id:o.team.id, w:g("wins"), d:lg.type==="nba"?0:g("ties"), l:g("losses"), gd:g("pointDifferential") });
+        return;
+      }
+      for(const k in o) walk(o[k]);
+    })(d);
+  }catch(e){}
+  return rows;
+}
+function parseEvent(e, id, lg){
+  const comp = e.competitions && e.competitions[0];
+  const cs = comp ? (comp.competitors || []) : [];
+  const me = cs.find(c => String(c.team && c.team.id) === String(id));
+  const opp = cs.find(c => c !== me);
+  const state = comp && comp.status && comp.status.type && comp.status.type.state;
+  let myML = null;
+  const od = comp && comp.odds && comp.odds[0];
+  if(od){ const side = (me ? me.homeAway === "home" : true) ? od.homeTeamOdds : od.awayTeamOdds;
+    if(side && typeof side.moneyLine === "number") myML = side.moneyLine; }
+  return { id:e.id, date:e.date, state, myML,
+    home: me ? me.homeAway === "home" : true,
+    opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
+    oppId: (opp && opp.team) ? opp.team.id : null,
+    my: me && me.score ? parseInt(me.score.displayValue ?? me.score, 10) : NaN,
+    th: opp && opp.score ? parseInt(opp.score.displayValue ?? opp.score, 10) : NaN };
+}
+const SCH = {};
+async function schedule(lg, id){
+  const k = lg.name + "/" + id;
+  if(SCH[k]) return SCH[k];
+  const base = lg.type === "nba"
+    ? `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/${id}/schedule`
+    : `https://site.api.espn.com/apis/site/v2/sports/soccer/${lg.espn}/teams/${id}/schedule`;
+  const map = new Map();
+  for(const u of [base, base + "?fixture=true"]){
+    try{ const d = await fetch(u, {cache:"no-store"}).then(r => r.json());
+      (d.events || []).forEach(e => { if(!map.has(e.id)) map.set(e.id, parseEvent(e, id, lg)); }); }catch(e){}
+  }
+  const ev = [...map.values()].sort((a,b) => new Date(a.date) - new Date(b.date));
+  SCH[k] = ev; return ev;
+}
+function ptsFor(lg, res){ return lg.type === "nba" ? (res === "W" ? 1 : 0) : (res === "W" ? 3 : res === "D" ? 1 : 0); }
+function fmt(iso){ const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}. ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function dayRange(a, b){
+  const f = d => `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`;
+  return `${f(a)} – ${f(b)} ${b.getFullYear()}.`;
+}
+
+(async function build(){
+  const now = Date.now(), from = now - 7*86400000, to = now + 7*86400000;
+  const tables = {}, ids = {};
+  await Promise.all(LEAGUES.map(async lg => { tables[lg.name] = await standings(lg); }));
+  await Promise.all(LEAGUES.map(async lg => {
+    ids[lg.name] = {};
+    Object.entries(lg.picks).forEach(([p, club]) => {
+      const r = findTeam(tables[lg.name] || [], club);
+      if(r) ids[lg.name][p] = r.id;
+    });
+  }));
+
+  // ukupni bodovi i gol/koš razlika
+  const tot = {}, gdF = {}, gdN = {};
+  PLAYERS.forEach(p => { tot[p] = 0; gdF[p] = 0; gdN[p] = 0; });
+  LEAGUES.forEach(lg => PLAYERS.forEach(p => {
+    const r = findTeam(tables[lg.name] || [], lg.picks[p]);
+    if(!r) return;
+    tot[p] += lg.type === "nba" ? r.w : r.w*3 + r.d;
+    if(lg.type === "nba") gdN[p] += r.gd || 0; else gdF[p] += r.gd || 0;
+  }));
+
+  // utakmice u prozoru ±7 dana
+  const week = {}, next = [];
+  PLAYERS.forEach(p => week[p] = []);
+  const ownersByEvent = {};
+  await Promise.all(LEAGUES.map(async lg => {
+    await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
+      const id = ids[lg.name][p];
+      if(!id) return;
+      const ev = await schedule(lg, id);
+      ev.forEach(m => {
+        const t = new Date(m.date).getTime();
+        if(isNaN(t)) return;
+        if(t >= from && t <= now && m.state === "post" && !isNaN(m.my) && !isNaN(m.th)){
+          const res = m.my > m.th ? "W" : (m.my < m.th ? "L" : (lg.type === "nba" ? null : "D"));
+          if(!res) return;
+          week[p].push({ lg, club, m, res, pts: ptsFor(lg, res), diff: m.my - m.th });
+        }
+        if(t > now && t <= to && m.state !== "post"){
+          (ownersByEvent[m.id] = ownersByEvent[m.id] || []).push(p);
+          if(!next.some(x => x.m.id === m.id)) next.push({ lg, club, p, m });
+        }
+      });
+    }));
+  }));
+
+  const wpts = {}, wrec = {};
+  PLAYERS.forEach(p => {
+    wpts[p] = week[p].reduce((s,x) => s + x.pts, 0);
+    wrec[p] = { W: week[p].filter(x => x.res === "W").length, D: week[p].filter(x => x.res === "D").length, L: week[p].filter(x => x.res === "L").length };
+    week[p].sort((a,b) => new Date(b.m.date) - new Date(a.m.date));
+  });
+
+  const order = [...PLAYERS].sort((a,b) => (tot[b]-tot[a]) || (gdF[b]-gdF[a]) || (gdN[b]-gdN[a]));
+  const before = [...PLAYERS].sort((a,b) => ((tot[b]-wpts[b])-(tot[a]-wpts[a])) || (gdF[b]-gdF[a]));
+  const star = [...PLAYERS].sort((a,b) => wpts[b]-wpts[a])[0];
+  const flop = [...PLAYERS].sort((a,b) => wpts[a]-wpts[b])[0];
+
+  // šanse za naslov (brza simulacija na temelju koeficijenata / neutralno)
+  const rem = {};
+  PLAYERS.forEach(p => rem[p] = []);
+  await Promise.all(LEAGUES.map(async lg => {
+    await Promise.all(Object.entries(lg.picks).map(async ([p, club]) => {
+      const id = ids[lg.name][p];
+      if(!id) return;
+      (await schedule(lg, id)).forEach(m => {
+        if(m.state === "post") return;
+        let pw = null;
+        if(m.myML !== null && m.myML !== undefined) pw = m.myML < 0 ? (-m.myML)/((-m.myML)+100) : 100/(m.myML+100);
+        if(lg.type === "nba"){ rem[p].push({ w: Math.min(.93, Math.max(.07, pw === null ? .5 : pw)), d:0, nba:true }); return; }
+        if(pw === null) pw = .38;
+        pw = Math.min(.85, Math.max(.07, pw));
+        let pd = .31 - .26*Math.abs(pw - .33); pd = Math.min(.33, Math.max(.13, pd));
+        rem[p].push({ w:pw, d:pd, nba:false });
+      });
+    }));
+  }));
+  const N = 2000, titles = {};
+  PLAYERS.forEach(p => titles[p] = 0);
+  for(let i = 0; i < N; i++){
+    const fin = PLAYERS.map(p => {
+      let s = tot[p];
+      for(const pr of rem[p]){ const r = Math.random();
+        if(pr.nba){ if(r < pr.w) s += 1; } else if(r < pr.w) s += 3; else if(r < pr.w + pr.d) s += 1; }
+      return { p, s };
+    });
+    const mx = Math.max(...fin.map(f => f.s));
+    const win = fin.filter(f => f.s === mx);
+    win.forEach(f => titles[f.p] += 1/win.length);
+  }
+  const odds = PLAYERS.map(p => ({ p, v: 100*titles[p]/N })).sort((a,b) => b.v - a.v);
+
+  // najzanimljiviji rezultati
+  const all = [];
+  PLAYERS.forEach(p => week[p].forEach(x => all.push({ p, ...x })));
+  const bigWin = [...all].filter(x => x.res === "W" && x.lg.type !== "nba").sort((a,b) => b.diff - a.diff)[0];
+  const bigLoss = [...all].filter(x => x.res === "L" && x.lg.type !== "nba").sort((a,b) => a.diff - b.diff)[0];
+
+  const sgn = n => (n > 0 ? "+" : "") + n;
+  const resLine = x => `<div class="r"><span class="b ${x.res}">${x.res}</span><span class="o">${x.m.home ? "" : "@ "}${short(x.m.opp)}</span><span class="s">${x.my ?? x.m.my}:${x.m.th}</span></div>`;
+
+  const stdRows = order.map((p,i) => {
+    const prev = before.indexOf(p) + 1, mv = prev - (i+1);
+    const arrow = mv > 0 ? `<span class="mv up">▲${mv}</span>` : mv < 0 ? `<span class="mv dn">▼${-mv}</span>` : `<span class="mv same">—</span>`;
+    return `<tr class="${i===0?'lead':''}"><td class="pos">${i+1}</td><td class="nm">${p}${i===0?" 🏆":""}</td>`
+      + `<td>${arrow}</td><td class="gd">${sgn(gdF[p])}</td>`
+      + `<td class="wk ${wpts[p]>0?'wkpos':'wkzero'}">+${wpts[p]}</td><td class="pt">${tot[p]}</td></tr>`;
+  }).join("");
+
+  const colHtml = order.map(p => `<div class="col"><h4>${p}<span>+${wpts[p]}</span></h4>`
+    + `<div class="r" style="color:var(--muted);font-size:.68rem;padding-bottom:3px">${wrec[p].W}P · ${wrec[p].D}N · ${wrec[p].L}I</div>`
+    + (week[p].length ? week[p].map(x => `<div class="r"><span class="b ${x.res}">${x.res}</span><span class="o">${x.m.home ? "" : "@ "}${short(x.m.opp)}</span><span class="s">${x.m.my}:${x.m.th}</span></div>`).join("")
+       : `<div class="r"><span class="o">nema utakmica</span></div>`)
+    + `</div>`).join("");
+
+  const derbies = next.filter(x => (ownersByEvent[x.m.id] || []).length > 1);
+  const picked = [...derbies, ...next.filter(x => !derbies.includes(x))].slice(0, 9)
+    .sort((a,b) => new Date(a.m.date) - new Date(b.m.date));
+  const fxHtml = picked.map(x => {
+    const own = ownersByEvent[x.m.id] || [x.p];
+    const isD = own.length > 1;
+    const vs = x.m.home ? `${short(x.club)} – ${short(x.m.opp)}` : `${short(x.m.opp)} – ${short(x.club)}`;
+    return `<div class="fx"><span class="who ${isD?'derby':''}">${own.join(" vs ")}</span><span class="m">${vs}</span><span class="t">${fmt(x.m.date)}</span></div>`;
+  }).join("");
+
+  const starLine = week[star].filter(x => x.res === "W").slice(0,3)
+    .map(x => `<div><b>${short(x.club)}</b> ${x.m.my}:${x.m.th} ${x.m.home ? "" : "(g)"} <span style="color:var(--muted)">${x.lg.name}</span></div>`).join("") || `<div>bez pobjeda</div>`;
+  const flopLine = week[flop].filter(x => x.res === "L").slice(0,3)
+    .map(x => `<div><b>${short(x.club)}</b> ${x.m.my}:${x.m.th} ${x.m.home ? "" : "(g)"} <span style="color:var(--muted)">${x.lg.name}</span></div>`).join("") || `<div>bez poraza</div>`;
+
+  document.getElementById("sheet").innerHTML = `
+  <div class="hero">
+    <img src="c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png" alt="Klupica">
+    <div>
+      <div class="kicker">Klupica Draft Liga · 2026/2027</div>
+      <h1>Tjedni pregled</h1>
+      <div class="range">${dayRange(new Date(from), new Date(now))} · ${all.length} odigranih utakmica</div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="box">
+      <div class="boxtitle">Poredak nakon tjedna</div>
+      <table class="std">${stdRows}</table>
+    </div>
+    <div>
+      <div class="box" style="margin-bottom:14px">
+        <div class="boxtitle">Igrač tjedna</div>
+        <div class="star hot"><span class="big">${star}</span><span class="pts">+${wpts[star]} bodova · ${wrec[star].W}P ${wrec[star].D}N ${wrec[star].L}I</span>
+        <div class="mini">${starLine}</div></div>
+      </div>
+      <div class="box">
+        <div class="boxtitle">Razočaranje tjedna</div>
+        <div class="star cold"><span class="big">${flop}</span><span class="pts">+${wpts[flop]} bodova · ${wrec[flop].W}P ${wrec[flop].D}N ${wrec[flop].L}I</span>
+        <div class="mini">${flopLine}</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="box" style="margin-bottom:14px">
+    <div class="boxtitle">Rezultati tjedna po igračima</div>
+    <div class="cols">${colHtml}</div>
+  </div>
+
+  <div class="grid2">
+    <div class="box odds">
+      <div class="boxtitle">Šanse za naslov (${N} simulacija)</div>
+      ${odds.map(o => `<div class="row"><span class="nm">${o.p}</span><span class="track"><span class="fill" style="width:${Math.max(2,o.v)}%"></span></span><span class="val">${o.v.toFixed(1).replace(".", ",")} %</span></div>`).join("")}
+      <div style="color:var(--muted);font-size:.74rem;margin-top:8px">Rezultat tjedna: ${bigWin ? `najuvjerljivija pobjeda <b style="color:var(--green)">${short(bigWin.club)} ${bigWin.m.my}:${bigWin.m.th}</b> (${bigWin.p})` : "—"}${bigLoss ? `, najteži poraz <b style="color:var(--red)">${short(bigLoss.club)} ${bigLoss.m.my}:${bigLoss.m.th}</b> (${bigLoss.p})` : ""}.</div>
+    </div>
+    <div class="box">
+      <div class="boxtitle">Što slijedi — sljedećih 7 dana</div>
+      ${fxHtml || `<div class="fx"><span class="m">Nema zakazanih utakmica.</span></div>`}
+    </div>
+  </div>
+
+  <div class="foot">
+    Automatski generirano iz ESPN podataka · ${new Date().toLocaleString("hr-HR")}<br>
+    <a href="index.html">← Natrag na tablicu</a> · <a href="https://ssever62.github.io/draft-liga/">ssever62.github.io/draft-liga</a>
+  </div>`;
+})();
+</script>
+</body>
+</html>

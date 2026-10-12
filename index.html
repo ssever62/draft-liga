@@ -343,6 +343,7 @@
     <button class="topbtn resbtn" onclick="showView('next7')" title="Raspored sljedećih 7 dana">⏭️ SLJEDEĆIH 7 DANA</button>
     <button class="topbtn resbtn" onclick="showView('chart')" title="Kretanje bodova kroz sezonu">📈 KRETANJE BODOVA</button>
     <button class="topbtn resbtn" onclick="showView('sim')" title="Simulacija ostatka sezone">🎲 ŠANSE ZA NASLOV</button>
+    <a class="topbtn resbtn" href="tjedni.html" title="Vizualni tjedni pregled za dijeljenje" style="text-decoration:none">🗞️ TJEDNI PREGLED</a>
   </div>
 
   <h2 id="tjedan">🔴 Live utakmice <span class="h2sub">— uživo i rezultati današnjeg dana</span></h2>
@@ -764,7 +765,6 @@ async function buildWeek(){
   if(live.length || soon) WEEK_TIMER = setTimeout(buildWeek, live.length ? 45000 : 60000);
 }
 
-
 let LEAGUE_ROWS = {};
 const SCHED_CACHE = {};
 let STRENGTH = null;
@@ -927,7 +927,7 @@ async function fetchSchedule(lg, id){
     }catch(e){}
   }
   const events = [...map.values()].sort((a,b) => new Date(a.date) - new Date(b.date));
-  // redni broj kola = redoslijed utakmica u toj ligi (kupovi se preskoče)
+  // redni broj kola = redoslijed utakmica u toj ligi (kupovi se preskaču)
   let _n = 0;
   events.forEach(m => {
     const inLeague = lg.type === "nba" ? /regular/i.test(m.stName || "") : (!m.lgSlug || m.lgSlug === lg.espn);
@@ -1419,6 +1419,7 @@ async function renderSimView(v){
 }
 
 // ===== graf: kretanje bodova kroz sezonu =====
+const CHART_COLORS = { };
 const CHART_PALETTE = ["#4da3ff","#3ddc84","#ffd166","#ff6b6b","#c084fc","#22d3ee"];
 let CHART_GRAN = "week";
 function chartColor(p){ const i = PLAYERS.indexOf(p); return CHART_PALETTE[i % CHART_PALETTE.length]; }
