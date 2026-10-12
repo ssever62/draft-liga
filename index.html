@@ -133,17 +133,22 @@
   .card td{height:28px; vertical-align:middle;}
   .pick{color:var(--muted); font-style:italic;}
   .err{color:var(--red); font-size:.8rem;}
-  .pts{font-weight:700; color:var(--green);}
+  .pts{font-weight:800; color:var(--gold);}
   .clublogo{width:18px; height:18px; vertical-align:middle; margin-right:6px; object-fit:contain;}
   .card td:nth-child(3), .card th:nth-child(3){text-align:left;}
   .card td:nth-child(3){white-space:nowrap;}
   .card table{table-layout:fixed;}
-  .card th,.card td{padding:5px 4px;}
-  .card th:nth-child(1),.card td:nth-child(1){width:22px;}
-  .card th:nth-child(2),.card td:nth-child(2){width:64px;}
+  .card th,.card td{padding:5px 3px;}
+  .card th:nth-child(1),.card td:nth-child(1){width:20px;}
+  .card th:nth-child(2),.card td:nth-child(2){width:60px;}
   .card td:nth-child(3){overflow:hidden; text-overflow:ellipsis;}
-  .card th:nth-child(n+4),.card td:nth-child(n+4){width:26px;}
-  .card th:last-child,.card td:last-child{width:34px;}
+  .card th:nth-child(n+4),.card td:nth-child(n+4){width:24px;}
+  .card th:last-child,.card td:last-child{width:32px;}
+  /* boje brojeva: odigrano / pobjede / remiji / porazi */
+  .numO{color:var(--accent); font-weight:800;}
+  .numW{color:var(--green); font-weight:800;}
+  .numD{color:#f2a33c; font-weight:800;}
+  .numL{color:var(--red); font-weight:800;}
   .foot{margin-top:30px; color:var(--muted); font-size:.75rem; line-height:1.5;}
   .muted{color:var(--muted);}
   .pcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;}
@@ -489,17 +494,20 @@ function render(results, skipWeek){
     PLAYERS.forEach(p => {
       const row = findTeam(rows, lg.picks[p]);
       const dl = LIVE_DELTA[lg.name + "|" + lg.picks[p]] || null;
-      scores[p][lg.name] = { pts: points(lg, row) + (dl ? dl.pts : 0), gd: ((row && row.gd) || 0) + (dl ? dl.gd : 0), row, pick: lg.picks[p], live: dl };
+      const _gd = ((row && row.gd) || 0) + (dl ? dl.gd : 0);
+      const _nba = lg.type === "nba";
+      scores[p][lg.name] = { pts: points(lg, row) + (dl ? dl.pts : 0), gd: _gd, gdF: _nba ? 0 : _gd, gdN: _nba ? _gd : 0, row, pick: lg.picks[p], live: dl };
     });
   });
   const totals = PLAYERS.map(p => ({
     p,
     total: LEAGUES.reduce((s,lg) => s + scores[p][lg.name].pts, 0),
-    gd: LEAGUES.reduce((s,lg) => s + (scores[p][lg.name].gd || 0), 0)
-  })).sort((a,b) => (b.total - a.total) || (b.gd - a.gd));
-  // dijeljena mjesta: isti bodovi I ista gol-razlika = isto mjesto
+    gdF: LEAGUES.reduce((s,lg) => s + (scores[p][lg.name].gdF || 0), 0),
+    gdN: LEAGUES.reduce((s,lg) => s + (scores[p][lg.name].gdN || 0), 0)
+  })).sort((a,b) => (b.total - a.total) || (b.gdF - a.gdF) || (b.gdN - a.gdN));
+  // dijeljena mjesta: bodovi -> gol razlika (nogomet) -> koš razlika (NBA)
   const rank = [];
-  totals.forEach((t,i) => { rank[i] = (i > 0 && t.total === totals[i-1].total && t.gd === totals[i-1].gd) ? rank[i-1] : i+1; });
+  totals.forEach((t,i) => { rank[i] = (i > 0 && t.total === totals[i-1].total && t.gdF === totals[i-1].gdF && t.gdN === totals[i-1].gdN) ? rank[i-1] : i+1; });
   const lastFirst = rank.lastIndexOf(1);
   const worst = rank[rank.length-1];
   const allTied = rank[0] === worst;
@@ -507,25 +515,26 @@ function render(results, skipWeek){
 
   // ===== zbirna tablica: odigrano, P, R, I, gol-razlika, bodovi =====
   const agg = PLAYERS.map(p => {
-    let w = 0, d = 0, l = 0, gd = 0, pts = 0, lv = false;
+    let w = 0, d = 0, l = 0, gdF = 0, gdN = 0, pts = 0, lv = false;
     LEAGUES.forEach(lg => {
       const sc = scores[p][lg.name], r = sc.row, dl = sc.live;
       w += (r ? r.w : 0) + (dl ? dl.w : 0);
       d += (r ? r.d : 0) + (dl ? dl.d : 0);
       l += (r ? r.l : 0) + (dl ? dl.l : 0);
-      gd += sc.gd || 0;
+      gdF += sc.gdF || 0;
+      gdN += sc.gdN || 0;
       pts += sc.pts;
       if(dl) lv = true;
     });
-    return { p, w, d, l, gd, pts, lv };
-  }).sort((a,b) => (b.pts - a.pts) || (b.gd - a.gd));
+    return { p, w, d, l, gdF, gdN, pts, lv };
+  }).sort((a,b) => (b.pts - a.pts) || (b.gdF - a.gdF) || (b.gdN - a.gdN));
   const aRank = [];
-  agg.forEach((t,i) => { aRank[i] = (i > 0 && t.pts === agg[i-1].pts && t.gd === agg[i-1].gd) ? aRank[i-1] : i+1; });
+  agg.forEach((t,i) => { aRank[i] = (i > 0 && t.pts === agg[i-1].pts && t.gdF === agg[i-1].gdF && t.gdN === agg[i-1].gdN) ? aRank[i-1] : i+1; });
   const aLast1 = aRank.lastIndexOf(1), aWorst = aRank[aRank.length-1];
   const aAllTied = aRank[0] === aWorst, aFirstWorst = aRank.indexOf(aWorst);
   const _th = (full, ab) => `<th><span class="hfull">${full}</span><span class="habbr" title="${full}">${ab}</span></th>`;
   let tot = "<thead><tr><th class='rankcol'>#</th><th>Igrač</th>"
-    + _th("Utakmice","O") + _th("Pobjede","P") + _th("Neriješeno","R") + _th("Porazi","I") + _th("Gol razlika","GR") + _th("Bodovi","BOD")
+    + _th("Utakmice","O") + _th("Pobjede","P") + _th("Neriješeno","R") + _th("Porazi","I") + _th("Gol razlika","GR") + _th("Koš razlika","KR") + _th("Bodovi","BOD")
     + "</tr></thead><tbody>";
   agg.forEach((t,i) => {
     const cls = [];
@@ -533,10 +542,11 @@ function render(results, skipWeek){
     if(i === aLast1 && !aAllTied) cls.push("goldline");
     if(!aAllTied && aRank[i] === aWorst) cls.push("redrow");
     if(!aAllTied && i === aFirstWorst - 1) cls.push("redline");
-    const gdTxt = (t.gd > 0 ? "+" : "") + t.gd;
+    const sgn = n => (n > 0 ? "+" : "") + n;
     const _c = (k, val, extra) => `<td class="tipcell ${extra||''}" data-p="${t.p}" data-k="${k}">${val}</td>`;
     tot += `<tr class="${cls.join(' ')}"><td class="rankcell">${aRank[i]}</td><td class="pname">${t.p}</td>`
-      + _c("o", t.w + t.d + t.l) + _c("w", t.w) + _c("d", t.d) + _c("l", t.l) + _c("gd", gdTxt)
+      + _c("o", t.w + t.d + t.l, "numO") + _c("w", t.w, "numW") + _c("d", t.d, "numD") + _c("l", t.l, "numL")
+      + _c("gd", sgn(t.gdF)) + _c("kd", sgn(t.gdN))
       + _c("pts", t.pts, "total " + (t.lv ? "ptslive" : "")) + `</tr>`;
   });
   tot += "</tbody>";
@@ -565,7 +575,7 @@ function render(results, skipWeek){
   results.forEach(({lg, rows, err}) => {
     cards += `<div class="card">${LEAGUE_LOGOS[lg.name] ? `<img class="cardwm" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}<span class="countdown" data-lg="${lg.name}" title="Odbrojavanje do prve utakmice">—</span><h3>${lg.name}${LEAGUE_LOGOS[lg.name] ? `<img class="leaguelogo" src="${LEAGUE_LOGOS[lg.name]}" alt="" onerror="this.style.display='none'">` : ""}</h3>`;
     if(err) cards += `<div class="err">Greška: ${err}</div>`;
-    cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
+    cards += `<table><tr><th>#</th><th>Igrač</th><th>Klub</th><th title="Odigrano">U</th><th>P</th>${lg.type==="nba"?"":"<th>R</th>"}<th>I</th><th>Bod</th></tr>`;
     // poredaj po bodovima, pa po gol-razlici; dijeljena mjesta kad je oboje isto
     const _entries = Object.entries(lg.picks)
       .sort((a, b) => (scores[b[0]][lg.name].pts - scores[a[0]][lg.name].pts) || ((scores[b[0]][lg.name].gd || 0) - (scores[a[0]][lg.name].gd || 0)));
@@ -584,9 +594,12 @@ function render(results, skipWeek){
       else if(!r){ const _s = NBA_LOGOS[club] || ""; cards += `<td title="${club}">${_s ? `<img class="clublogo" src="${_s}" alt="" onerror="this.style.visibility='hidden'">` : ""}${shortClub(club)}</td>`; }
       else { const _src = r.logo || (r.id ? `https://a.espncdn.com/i/teamlogos/${lg.type==='nba'?'nba':'soccer'}/500/${r.id}.png` : ""); cards += `<td title="${r.team}">${_src ? `<img class="clublogo" src="${_src}" alt="" onerror="this.style.visibility='hidden'">` : ""}${shortClub(r.team)}</td>`; }
       const dl = s.live;
-      cards += `<td>${(r ? r.w : 0) + (dl ? dl.w : 0)}</td>`;
-      if(lg.type !== "nba") cards += `<td>${(r ? r.d : 0) + (dl ? dl.d : 0)}</td>`;
-      cards += `<td>${(r ? r.l : 0) + (dl ? dl.l : 0)}</td><td class="pts ${dl?'ptslive':''}" ${dl?'title="Uključuje utakmicu u tijeku (privremeno)"':''}>${s.pts}</td></tr>`;
+      const _w = (r ? r.w : 0) + (dl ? dl.w : 0);
+      const _d = (r ? r.d : 0) + (dl ? dl.d : 0);
+      const _l = (r ? r.l : 0) + (dl ? dl.l : 0);
+      cards += `<td class="numO">${_w + _d + _l}</td><td class="numW">${_w}</td>`;
+      if(lg.type !== "nba") cards += `<td class="numD">${_d}</td>`;
+      cards += `<td class="numL">${_l}</td><td class="pts ${dl?'ptslive':''}" ${dl?'title="Uključuje utakmicu u tijeku (privremeno)"':''}>${s.pts}</td></tr>`;
     });
     cards += "</table></div>";
   });
@@ -919,24 +932,26 @@ async function buildPlayerMatches(force){
   return out;
 }
 
-const TIP_TITLE = { o:"Sve odigrane utakmice", w:"Pobjede", d:"Neriješeno", l:"Porazi", gd:"Gol razlika", pts:"Bodovi" };
+const TIP_TITLE = { o:"Sve odigrane utakmice", w:"Pobjede", d:"Neriješeno", l:"Porazi", gd:"Gol razlika (nogomet)", kd:"Koš razlika (NBA)", pts:"Bodovi" };
 function tipHtml(player, kind){
   const all = (PMATCH && PMATCH[player]) || [];
   const list = kind === "w" ? all.filter(x => x.res === "W")
              : kind === "d" ? all.filter(x => x.res === "D")
              : kind === "l" ? all.filter(x => x.res === "L")
+             : kind === "gd" ? all.filter(x => x.lg.type !== "nba")
+             : kind === "kd" ? all.filter(x => x.lg.type === "nba")
              : all;
   let h = `<div class="tt">${player} · ${TIP_TITLE[kind] || ""} (${list.length})</div>`;
   if(!list.length) return h + `<div class="muted">Još nema odigranih utakmica.</div>`;
   list.forEach(x => {
     const vs = x.m.home ? `${shortClub(x.club)} – ${x.m.opp}` : `${x.m.opp} – ${shortClub(x.club)}`;
     const sc = x.m.home ? `${x.a}:${x.b}` : `${x.b}:${x.a}`;
-    const val = kind === "gd" ? ((x.gd > 0 ? "+" : "") + x.gd) : (kind === "pts" ? "+" + x.pts : "");
+    const val = (kind === "gd" || kind === "kd") ? ((x.gd > 0 ? "+" : "") + x.gd) : (kind === "pts" ? "+" + x.pts : "");
     h += `<div class="trow"><span class="tlg">${x.lg.name}</span><span class="tvs">${vs}</span>`
        + `<span class="tsc">${sc}${x.live ? " 🔴" : ""}</span><span class="res ${x.res}">${x.res}</span>`
        + (val ? `<span class="tval">${val}</span>` : "") + `</div>`;
   });
-  if(kind === "gd") h += `<div class="tsum">Ukupno: ${(list.reduce((s,x)=>s+x.gd,0) > 0 ? "+" : "") + list.reduce((s,x)=>s+x.gd,0)}</div>`;
+  if(kind === "gd" || kind === "kd") h += `<div class="tsum">Ukupno: ${(list.reduce((s,x)=>s+x.gd,0) > 0 ? "+" : "") + list.reduce((s,x)=>s+x.gd,0)}</div>`;
   if(kind === "pts") h += `<div class="tsum">Ukupno: ${list.reduce((s,x)=>s+x.pts,0)} bodova</div>`;
   return h;
 }
