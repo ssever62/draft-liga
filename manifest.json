@@ -1,0 +1,19 @@
+{
+  "name": "Klupica Draft Liga 2026/2027",
+  "short_name": "Klupica Draft",
+  "description": "Live tablica draft lige — bodovi, rezultati uživo, raspored i šanse za naslov.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1420",
+  "theme_color": "#0f1420",
+  "icons": [
+    {
+      "src": "c29edf2c-40c1-4eb1-96fa-c09c6ca6166e.png",
+      "sizes": "192x192 256x256 512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
