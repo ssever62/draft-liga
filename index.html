@@ -58,6 +58,13 @@
   #tip .tval{width:34px; text-align:right; color:var(--gold); font-weight:800;}
   #tip .tsum{margin-top:6px; padding-top:5px; border-top:1px solid var(--border); font-weight:800;}
   /* pregled rezultata po igračima (6 stupaca) */
+  /* graf kretanja bodova */
+  .chartwrap{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:10px 12px;}
+  .chartwrap svg{width:100%; height:auto; display:block;}
+  .clegend{display:flex; flex-wrap:wrap; gap:12px; margin:2px 0 12px;}
+  .cleg{display:inline-flex; align-items:center; gap:6px; font-size:.85rem; color:var(--muted);}
+  .cleg b{color:var(--text);}
+  .cdot{width:11px; height:11px; border-radius:50%; display:inline-block;}
   /* balon s igračima */
   #pmodal{position:fixed; inset:0; background:rgba(4,8,16,.72); z-index:1000; display:none; align-items:center; justify-content:center; padding:20px;}
   .pmbox{background:var(--card); border:1px solid var(--accent); border-radius:16px; padding:18px 20px; max-width:460px; width:100%; box-shadow:0 18px 50px rgba(0,0,0,.6);}
@@ -309,6 +316,7 @@
     <button class="topbtn resbtn" onclick="openPlayerModal()" title="Odaberi igrača za njegov pregled">📋 REZULTATI PO IGRAČIMA</button>
     <button class="topbtn resbtn" onclick="showView('last7')" title="Odigrane utakmice zadnjih 7 dana">⏮️ ZADNJIH 7 DANA</button>
     <button class="topbtn resbtn" onclick="showView('next7')" title="Raspored sljedećih 7 dana">⏭️ SLJEDEĆIH 7 DANA</button>
+    <button class="topbtn resbtn" onclick="showView('chart')" title="Kretanje bodova kroz sezonu">📈 KRETANJE BODOVA</button>
   </div>
 
   <h2 id="tjedan">🔴 Live utakmice <span class="h2sub">— uživo i rezultati današnjeg dana</span></h2>
@@ -1094,6 +1102,7 @@ function renderView(){
   if(VIEW.tab === "nextPlayers") return renderNextByPlayers(v);
   if(VIEW.tab === "results") return renderResultsView(v);
   if(VIEW.tab === "last7" || VIEW.tab === "next7") return renderWeekView(v, VIEW.tab);
+  if(VIEW.tab === "chart") return renderChartView(v);
   if(VIEW.tab === "playerweek") return renderPlayerWeekView(v);
   if(VIEW.tab === "fdr") return renderFdrView(v);
 }
@@ -1293,6 +1302,73 @@ async function renderPlayerWeekView(v){
     + `</div>`;
   v.innerHTML = `<div class="drillbar">` + PLAYERS.map(x => `<button class="chip ${x===p?'active':''}" onclick="pickPlayerWeek('${x}')">${x}</button>`).join("") + `</div>`
     + `<div class="pwcols">` + col("⏮️ Zadnjih 7 dana", past, "past") + col("⏭️ Sljedećih 7 dana", soon, "next") + `</div>`;
+}
+
+// ===== graf: kretanje bodova kroz sezonu =====
+const CHART_PALETTE = ["#4da3ff","#3ddc84","#ffd166","#ff6b6b","#c084fc","#22d3ee"];
+let CHART_GRAN = "week";
+function chartColor(p){ const i = PLAYERS.indexOf(p); return CHART_PALETTE[i % CHART_PALETTE.length]; }
+function chartKey(iso, gran){
+  const d = new Date(iso);
+  if(gran === "day") return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const t = new Date(d);
+  t.setDate(t.getDate() - ((t.getDay() + 6) % 7));   // ponedjeljak tog tjedna
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`;
+}
+function setChartGran(g){ CHART_GRAN = g; renderView(); }
+async function renderChartView(v){
+  v.innerHTML = `<div class="muted">Učitavanje podataka…</div>`;
+  await buildPlayerMatches(true);
+  if(VIEW.tab !== "chart") return;
+  const gran = CHART_GRAN;
+  const keys = new Set();
+  PLAYERS.forEach(p => (PMATCH[p] || []).forEach(x => keys.add(chartKey(x.m.date, gran))));
+  const xs = [...keys].sort();
+  const bar = `<div class="drillbar"><button class="chip ${gran==="week"?"active":""}" onclick="setChartGran('week')">Po tjednima</button>`
+    + `<button class="chip ${gran==="day"?"active":""}" onclick="setChartGran('day')">Po danima</button></div>`;
+  if(xs.length < 2){ v.innerHTML = bar + `<div class="muted">Premalo odigranih utakmica za graf.</div>`; return; }
+  const series = PLAYERS.map(p => {
+    const byKey = {};
+    (PMATCH[p] || []).forEach(x => { const k = chartKey(x.m.date, gran); byKey[k] = (byKey[k] || 0) + x.pts; });
+    let run = 0;
+    return { p, vals: xs.map(k => (run += (byKey[k] || 0))) };
+  }).sort((a,b) => b.vals[b.vals.length-1] - a.vals[a.vals.length-1]);
+
+  const W = 1000, H = 440, ML = 46, MR = 118, MT = 18, MB = 42;
+  const maxY = Math.max(10, ...series.map(s => s.vals[s.vals.length-1]));
+  const step = maxY > 120 ? 20 : maxY > 60 ? 10 : 5;
+  const top = Math.ceil(maxY / step) * step;
+  const X = i => ML + (W - ML - MR) * (xs.length === 1 ? 0 : i / (xs.length - 1));
+  const Y = val => H - MB - (H - MT - MB) * (val / top);
+  let g = "";
+  for(let y = 0; y <= top; y += step){
+    g += `<line x1="${ML}" y1="${Y(y)}" x2="${W-MR}" y2="${Y(y)}" stroke="#2a3550" stroke-width="1"/>`
+       + `<text x="${ML-8}" y="${Y(y)+4}" text-anchor="end" fill="#8b96ad" font-size="12">${y}</text>`;
+  }
+  const tickEvery = Math.max(1, Math.ceil(xs.length / 9));
+  xs.forEach((k, i) => {
+    if(i % tickEvery && i !== xs.length - 1) return;
+    const d = new Date(k + "T12:00:00");
+    const lab = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.`;
+    g += `<text x="${X(i)}" y="${H-MB+20}" text-anchor="middle" fill="#8b96ad" font-size="12">${lab}</text>`;
+  });
+  let lines = "";
+  series.forEach(s => {
+    const col = chartColor(s.p);
+    const pts = s.vals.map((val,i) => `${X(i).toFixed(1)},${Y(val).toFixed(1)}`).join(" ");
+    lines += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>`;
+    const last = s.vals[s.vals.length-1];
+    lines += `<circle cx="${X(xs.length-1).toFixed(1)}" cy="${Y(last).toFixed(1)}" r="4" fill="${col}"/>`
+           + `<text x="${X(xs.length-1)+10}" y="${Y(last)+4}" fill="${col}" font-size="13" font-weight="800">${s.p} ${last}</text>`;
+  });
+  const legend = `<div class="clegend">` + series.map(s =>
+    `<span class="cleg"><span class="cdot" style="background:${chartColor(s.p)}"></span>${s.p} <b>${s.vals[s.vals.length-1]}</b></span>`).join("") + `</div>`;
+  v.innerHTML = bar
+    + `<div class="fdrnote">Kumulativni bodovi kroz sezonu (${gran === "week" ? "po tjednima" : "po danima"}), uključujući sve lige.</div>`
+    + legend
+    + `<div class="chartwrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kretanje bodova">`
+    + `<line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H-MB}" stroke="#2a3550"/>`
+    + g + lines + `</svg></div>`;
 }
 
 // balon s popisom igrača
