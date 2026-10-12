@@ -65,8 +65,8 @@
   /* šanse */
   .odds div.row{display:flex; align-items:center; gap:9px; margin-bottom:7px;}
   .odds .nm{width:58px; font-weight:800; font-size:.86rem;}
-  .odds .track{flex:1; background:var(--card2); border:1px solid var(--border); border-radius:6px; height:18px; overflow:hidden; position:relative;}
-  .odds .fill{height:100%; background:linear-gradient(90deg,#4da3ff,#3ddc84);}
+  .odds .track{display:block; flex:1; background:var(--card2); border:1px solid var(--border); border-radius:6px; height:18px; overflow:hidden; position:relative;}
+  .odds .fill{display:block; height:100%; min-width:3px; background:linear-gradient(90deg,#4da3ff,#3ddc84); border-radius:5px;}
   .odds .val{width:48px; text-align:right; font-weight:800; font-size:.82rem; color:var(--gold);}
   /* nadolazeće */
   .fx{display:flex; align-items:center; gap:8px; font-size:.82rem; padding:4px 0; border-bottom:1px solid var(--border); white-space:nowrap;}
@@ -340,7 +340,7 @@ function dayRange(a, b){
   <div class="grid2">
     <div class="box odds">
       <div class="boxtitle">Šanse za naslov (${N} simulacija)</div>
-      ${odds.map(o => `<div class="row"><span class="nm">${o.p}</span><span class="track"><span class="fill" style="width:${Math.max(2,o.v)}%"></span></span><span class="val">${o.v.toFixed(1).replace(".", ",")} %</span></div>`).join("")}
+      ${odds.map(o => `<div class="row"><span class="nm">${o.p}</span><span class="track"><span class="fill" style="width:${Math.max(6, 100*o.v/(odds[0].v||1)).toFixed(1)}%"></span></span><span class="val">${o.v.toFixed(1).replace(".", ",")} %</span></div>`).join("")}
       <div style="color:var(--muted);font-size:.74rem;margin-top:8px">Rezultat tjedna: ${bigWin ? `najuvjerljivija pobjeda <b style="color:var(--green)">${short(bigWin.club)} ${bigWin.m.my}:${bigWin.m.th}</b> (${bigWin.p})` : "—"}${bigLoss ? `, najteži poraz <b style="color:var(--red)">${short(bigLoss.club)} ${bigLoss.m.my}:${bigLoss.m.th}</b> (${bigLoss.p})` : ""}.</div>
     </div>
     <div class="box">
