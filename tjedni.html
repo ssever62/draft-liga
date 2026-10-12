@@ -37,6 +37,7 @@
   .std .pt{text-align:right; font-weight:900; color:var(--gold); width:46px;}
   .std .gd{text-align:right; color:var(--muted); width:54px; font-size:.84rem;}
   .std .wk{text-align:right; width:52px; font-weight:800;}
+  .std .hd td{font-size:.62rem; letter-spacing:.08em; color:var(--muted); font-weight:800; padding-bottom:4px; border-bottom:1px solid var(--border);}
   .wkpos{color:var(--green);} .wkzero{color:var(--muted);}
   .mv{display:inline-block; width:34px; font-size:.78rem; font-weight:800;}
   .mv.up{color:var(--green);} .mv.dn{color:var(--red);} .mv.same{color:var(--muted);}
@@ -278,9 +279,10 @@ function dayRange(a, b){
     const prev = before.indexOf(p) + 1, mv = prev - (i+1);
     const arrow = mv > 0 ? `<span class="mv up">▲${mv}</span>` : mv < 0 ? `<span class="mv dn">▼${-mv}</span>` : `<span class="mv same">—</span>`;
     return `<tr class="${i===0?'lead':''}"><td class="pos">${i+1}</td><td class="nm">${p}${i===0?" 🏆":""}</td>`
-      + `<td>${arrow}</td><td class="gd">${sgn(gdF[p])}</td>`
+      + `<td>${arrow}</td><td class="gd">${sgn(gdF[p])}</td><td class="gd">${sgn(gdN[p])}</td>`
       + `<td class="wk ${wpts[p]>0?'wkpos':'wkzero'}">+${wpts[p]}</td><td class="pt">${tot[p]}</td></tr>`;
   }).join("");
+  const stdHead = `<tr class="hd"><td></td><td></td><td></td><td class="gd">GOL R.</td><td class="gd">KOŠ R.</td><td class="wk">TJEDAN</td><td class="pt">BOD</td></tr>`;
 
   const colHtml = order.map(p => `<div class="col"><h4>${p}<span>+${wpts[p]}</span></h4>`
     + `<div class="r" style="color:var(--muted);font-size:.68rem;padding-bottom:3px">${wrec[p].W}P · ${wrec[p].D}N · ${wrec[p].L}I</div>`
@@ -316,7 +318,7 @@ function dayRange(a, b){
   <div class="grid2">
     <div class="box">
       <div class="boxtitle">Poredak nakon tjedna</div>
-      <table class="std">${stdRows}</table>
+      <table class="std">${stdHead}${stdRows}</table>
     </div>
     <div>
       <div class="box" style="margin-bottom:14px">
