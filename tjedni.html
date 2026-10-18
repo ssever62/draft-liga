@@ -194,6 +194,23 @@ function dayRange(a, b){
     });
   }));
 
+  // NBA: ESPN tablica tijekom listopada uključuje pretsezonu — računamo iz rasporeda
+  const nbaLg = LEAGUES.find(l => l.type === "nba");
+  if(nbaLg && (tables[nbaLg.name] || []).length){
+    await Promise.all(Object.entries(nbaLg.picks).map(async ([p, club]) => {
+      const row = findTeam(tables[nbaLg.name], club);
+      const id = ids[nbaLg.name][p];
+      if(!row || !id) return;
+      let w = 0, l = 0, gd = 0;
+      (await schedule(nbaLg, id)).forEach(m => {
+        if(m.state !== "post" || !isLeagueMatch(nbaLg, m) || isNaN(m.my) || isNaN(m.th)) return;
+        if(m.my > m.th) w++; else l++;
+        gd += m.my - m.th;
+      });
+      row.w = w; row.d = 0; row.l = l; row.gd = gd;
+    }));
+  }
+
   // ukupni bodovi i gol/koš razlika
   const tot = {}, gdF = {}, gdN = {};
   PLAYERS.forEach(p => { tot[p] = 0; gdF[p] = 0; gdN[p] = 0; });

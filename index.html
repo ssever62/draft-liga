@@ -486,6 +486,28 @@ async function fetchNBA(){
   return rows;
 }
 
+// ESPN NBA tablica tijekom listopada vraća i pretsezonu — zato rekord
+// računamo iz rasporeda, samo iz utakmica regularnog dijela.
+async function fixNbaRecords(results){
+  const r = results.find(x => x.lg.type === "nba");
+  if(!r || !r.rows || !r.rows.length) return;
+  await Promise.all(Object.values(r.lg.picks).map(async club => {
+    const row = findTeam(r.rows, club);
+    if(!row || !row.id) return;
+    let ev = [];
+    try{ ev = await fetchSchedule(r.lg, row.id); }catch(e){}
+    let w = 0, l = 0, gd = 0;
+    ev.forEach(m => {
+      if(m.state !== "post" || !isLeagueMatch(r.lg, m)) return;
+      const a = parseInt(m.myScore, 10), b = parseInt(m.oppScore, 10);
+      if(isNaN(a) || isNaN(b)) return;
+      if(a > b) w++; else l++;
+      gd += a - b;
+    });
+    row.w = w; row.d = 0; row.l = l; row.gd = gd;
+  }));
+}
+
 function points(lg, row){
   if(!row) return 0;
   return lg.type === "nba" ? row.w : row.w*3 + row.d;
@@ -510,6 +532,7 @@ async function loadAll(){
       return;
     }
     loadAll._try = 0;
+    await fixNbaRecords(results);
     render(results);
     st.textContent = (empty ? "⚠️ Podaci trenutno nisu dostupni · " : "") + "Zadnje osvježeno: " + new Date().toLocaleString("hr-HR");
   } finally {
