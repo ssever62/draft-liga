@@ -694,6 +694,7 @@ async function buildWeek(){
     const consider = (m, myId) => {
       const o = own[String(myId)];
       if(!o || !m) return;
+      if(!isLeagueMatch(lg, m)) return;   // bez pretsezone (NBA) i kupova (nogomet)
       if(seen.has(m.id)){
         const ex = seen.get(m.id);
         if(!ex.m.round && m.round) ex.m.round = m.round;   // kolo dolazi iz rasporeda kluba
@@ -900,6 +901,7 @@ function parseEvent(e, id, lg){
     liveTxt,
     lgSlug: (e.league && e.league.slug) || "",
     stName: (e.seasonType && e.seasonType.name) || "",
+    stNum: (e.seasonType && e.seasonType.type) || (e.season && e.season.type) || 0,
     round: null,
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
@@ -910,6 +912,17 @@ function parseEvent(e, id, lg){
     oppScore: (opp && opp.score) ? (opp.score.displayValue ?? opp.score) : "",
     state, res
   };
+}
+
+// Računa li se utakmica? NBA: samo regularni dio (bez pretsezone i doigravanja).
+// Nogomet: samo prvenstvo te lige (bez kupova i europskih natjecanja).
+function isLeagueMatch(lg, m){
+  if(!m) return false;
+  if(lg.type === "nba"){
+    if(m.stNum) return m.stNum === 2;
+    return /regular/i.test(m.stName || "");
+  }
+  return !m.lgSlug || m.lgSlug === lg.espn;
 }
 
 async function fetchSchedule(lg, id){
@@ -930,7 +943,7 @@ async function fetchSchedule(lg, id){
   // redni broj kola = redoslijed utakmica u toj ligi (kupovi se preskaču)
   let _n = 0;
   events.forEach(m => {
-    const inLeague = lg.type === "nba" ? /regular/i.test(m.stName || "") : (!m.lgSlug || m.lgSlug === lg.espn);
+    const inLeague = isLeagueMatch(lg, m);
     m.round = inLeague ? ++_n : null;
   });
   SCHED_CACHE[key] = events;
@@ -950,6 +963,7 @@ async function buildPlayerMatches(force){
       try{ ev = await fetchSchedule(lg, id); }catch(e){}
       ev.forEach(m => {
         if(m.state !== "post" && m.state !== "in") return;
+        if(!isLeagueMatch(lg, m)) return;
         const a = parseInt(m.myScore, 10), b = parseInt(m.oppScore, 10);
         if(isNaN(a) || isNaN(b)) return;
         const res = a > b ? "W" : (a < b ? "L" : (lg.type === "nba" ? null : "D"));
@@ -1372,7 +1386,7 @@ async function simSeason(iters){
       if(!id) return;
       let ev = [];
       try{ ev = await fetchSchedule(lg, id); }catch(e){}
-      ev.forEach(m => { if(m.state !== "post" && m.state !== "in") rem[p].push(matchProbs(lg, m)); });
+      ev.forEach(m => { if(m.state !== "post" && m.state !== "in" && isLeagueMatch(lg, m)) rem[p].push(matchProbs(lg, m)); });
     }));
   }));
   const title = {}, top3 = {}, sum = {}, best = {}, worst = {};
@@ -1551,7 +1565,7 @@ async function renderFdrView(v){
     let ups = [];
     if(id){
       const ev = await fetchSchedule(lg, id);
-      ups = ev;   // sve utakmice sezone (odigrane se prikazuju zatamnjeno)
+      ups = ev.filter(m => isLeagueMatch(lg, m));   // sve prvenstvene utakmice (odigrane zatamnjene)
     }
     return { lg, club, id, ups };
   }));
@@ -1606,7 +1620,7 @@ async function updateCountdownTargets(){
       const id = await clubId(lg, club);
       if(!id) return;
       const ev = await fetchSchedule(lg, id);
-      ev.forEach(m => { if(m.state !== "post"){ const t = new Date(m.date).getTime(); if(!isNaN(t) && t >= now - 3600000 && (best === null || t < best)) best = t; } });
+      ev.forEach(m => { if(m.state !== "post" && isLeagueMatch(lg, m)){ const t = new Date(m.date).getTime(); if(!isNaN(t) && t >= now - 3600000 && (best === null || t < best)) best = t; } });
     }));
     LEAGUE_FIRST[lg.name] = best;
   }));

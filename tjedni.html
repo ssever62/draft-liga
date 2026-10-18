@@ -144,6 +144,9 @@ function parseEvent(e, id, lg){
   if(od){ const side = (me ? me.homeAway === "home" : true) ? od.homeTeamOdds : od.awayTeamOdds;
     if(side && typeof side.moneyLine === "number") myML = side.moneyLine; }
   return { id:e.id, date:e.date, state, myML,
+    lgSlug: (e.league && e.league.slug) || "",
+    stNum: (e.seasonType && e.seasonType.type) || (e.season && e.season.type) || 0,
+    stName: (e.seasonType && e.seasonType.name) || "",
     home: me ? me.homeAway === "home" : true,
     opp: (opp && opp.team) ? (opp.team.shortDisplayName || opp.team.displayName) : "?",
     oppId: (opp && opp.team) ? opp.team.id : null,
@@ -166,6 +169,12 @@ async function schedule(lg, id){
   SCH[k] = ev; return ev;
 }
 function ptsFor(lg, res){ return lg.type === "nba" ? (res === "W" ? 1 : 0) : (res === "W" ? 3 : res === "D" ? 1 : 0); }
+// samo prvenstvene utakmice: NBA bez pretsezone, nogomet bez kupova
+function isLeagueMatch(lg, m){
+  if(!m) return false;
+  if(lg.type === "nba"){ if(m.stNum) return m.stNum === 2; return /regular/i.test(m.stName || ""); }
+  return !m.lgSlug || m.lgSlug === lg.espn;
+}
 function fmt(iso){ const d = new Date(iso);
   return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}. ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 function dayRange(a, b){
@@ -206,7 +215,7 @@ function dayRange(a, b){
       const ev = await schedule(lg, id);
       ev.forEach(m => {
         const t = new Date(m.date).getTime();
-        if(isNaN(t)) return;
+        if(isNaN(t) || !isLeagueMatch(lg, m)) return;
         if(t >= from && t <= now && m.state === "post" && !isNaN(m.my) && !isNaN(m.th)){
           const res = m.my > m.th ? "W" : (m.my < m.th ? "L" : (lg.type === "nba" ? null : "D"));
           if(!res) return;
@@ -240,7 +249,7 @@ function dayRange(a, b){
       const id = ids[lg.name][p];
       if(!id) return;
       (await schedule(lg, id)).forEach(m => {
-        if(m.state === "post") return;
+        if(m.state === "post" || !isLeagueMatch(lg, m)) return;
         let pw = null;
         if(m.myML !== null && m.myML !== undefined) pw = m.myML < 0 ? (-m.myML)/((-m.myML)+100) : 100/(m.myML+100);
         if(lg.type === "nba"){ rem[p].push({ w: Math.min(.93, Math.max(.07, pw === null ? .5 : pw)), d:0, nba:true }); return; }
